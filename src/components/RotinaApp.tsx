@@ -73,6 +73,11 @@ export function RotinaApp({
   const [modalMode, setModalMode] = useState<'task' | 'event' | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [pushNeedsPrompt, setPushNeedsPrompt] = useState(false);
+  const [refreshState, setRefreshState] = useState<{
+    open: boolean;
+    step: string;
+    progress: number;
+  }>({ open: false, step: '', progress: 0 });
 
   const [phrase] = useState(
     () => FUNNY_PHRASES[Math.floor(Math.random() * FUNNY_PHRASES.length)]
@@ -135,6 +140,56 @@ export function RotinaApp({
     const supabase = createClient();
     await supabase.auth.signOut();
     router.refresh();
+  }
+
+  async function handleMobileRefresh() {
+    setRefreshState({
+      open: true,
+      step: 'Buscando novas atualizações do sistema...',
+      progress: 25,
+    });
+
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration();
+        await reg?.update().catch(() => {});
+      }
+
+      await new Promise((r) => setTimeout(r, 420));
+      setRefreshState({
+        open: true,
+        step: 'Sincronizando tarefas, agenda e perfil...',
+        progress: 68,
+      });
+
+      const supabase = createClient();
+      const [{ data: freshProfile }, { data: freshTasks }, { data: freshEvents }] =
+        await Promise.all([
+          supabase.from('profiles').select('*').eq('id', profile.id).single(),
+          supabase.from('tasks').select('*').order('created_at', { ascending: false }),
+          supabase
+            .from('events')
+            .select('*')
+            .order('event_date', { ascending: true })
+            .order('event_time', { ascending: true }),
+        ]);
+
+      if (freshProfile) setProfile(freshProfile as Profile);
+      if (freshTasks) setTasks(freshTasks as Task[]);
+      if (freshEvents) setEvents(freshEvents as CalendarEvent[]);
+
+      setRefreshState({
+        open: true,
+        step: 'Tudo atualizado! Aplicando novidades...',
+        progress: 100,
+      });
+
+      await new Promise((r) => setTimeout(r, 450));
+      window.location.reload();
+    } catch {
+      setRefreshState({ open: false, step: '', progress: 0 });
+      showToast('Não foi possível atualizar agora.');
+    }
   }
 
   async function handleSaveEntry(payload: NewTaskPayload | NewEventPayload) {
@@ -445,6 +500,15 @@ export function RotinaApp({
             <span>{crumbLabel[view]}</span>
           </div>
           <div className="top-actions">
+            <button
+              type="button"
+              className="mobile-refresh-btn"
+              onClick={handleMobileRefresh}
+              title="Buscar atualizações"
+              aria-label="Atualizar aplicativo"
+            >
+              <span className="refresh-ico">↻</span> Atualizar
+            </button>
             <button
               type="button"
               className="theme-toggle"
@@ -933,6 +997,21 @@ export function RotinaApp({
       )}
 
       {toastMsg && <div className="toast">{toastMsg}</div>}
+
+      {refreshState.open && (
+        <div className="refresh-overlay" role="status" aria-live="polite">
+          <div className="refresh-card">
+            <div className="refresh-pulse">
+              <BrandLogo size={54} />
+            </div>
+            <h3>Atualizando seu espaço</h3>
+            <p>{refreshState.step}</p>
+            <div className="refresh-bar">
+              <span style={{ width: `${refreshState.progress}%` }} />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
