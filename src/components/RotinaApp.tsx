@@ -1186,6 +1186,7 @@ export function RotinaApp({
 
         {view === 'tips' && (
           <TipsView
+            displayName={profile.display_name}
             todayStr={todayStr}
             nowTimeStr={nowTimeStr}
             tasks={tasks}

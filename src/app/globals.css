@@ -644,7 +644,7 @@ button {
 
 .tips-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
   gap: 16px;
 }
 
@@ -657,8 +657,120 @@ button {
   border-left-color: var(--red);
 }
 
+.tip-card.tip-warning {
+  border-left-color: var(--orange);
+}
+
 .tip-card.tip-good {
   border-left-color: var(--green);
+}
+
+.tip-actions-list {
+  margin: 0 0 14px;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.65;
+  color: var(--text);
+}
+
+.tip-actions-list li {
+  margin-bottom: 4px;
+}
+
+.coach-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 22px 24px;
+  margin-bottom: 18px;
+  border-radius: 20px;
+  background: var(--welcome-bg);
+  border: 1px solid var(--welcome-border);
+}
+
+.coach-hero-main h2 {
+  font-size: 22px;
+  font-weight: 750;
+  letter-spacing: -0.6px;
+  margin: 6px 0;
+}
+
+.coach-hero-main p {
+  margin: 0 0 12px;
+  color: var(--welcome-text);
+  font-size: 13px;
+}
+
+.coach-pills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.coach-pills span {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.coach-score-ring {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 4px solid var(--accent);
+  display: grid;
+  place-items: center;
+  align-content: center;
+  flex: none;
+  text-align: center;
+  box-shadow: var(--shadow);
+}
+
+.coach-score-ring strong {
+  font-size: 24px;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.coach-score-ring small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.coach-chat {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.coach-msg {
+  padding: 10px 13px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-line;
+}
+
+.coach-msg.user {
+  background: var(--accent);
+  color: #fff;
+  justify-self: end;
+  max-width: 85%;
+}
+
+.coach-msg.bot {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--text);
+  justify-self: start;
+  max-width: 92%;
 }
 
 .task-meta {
@@ -1635,6 +1747,13 @@ button {
     padding: 14px;
   }
   .form-row {
+    grid-template-columns: 1fr;
+  }
+  .coach-hero {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .tips-grid {
     grid-template-columns: 1fr;
   }
   .calendar .dow,
