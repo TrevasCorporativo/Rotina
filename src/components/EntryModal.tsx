@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { Priority } from '@/lib/types';
+import type { CalendarEvent, Priority } from '@/lib/types';
 
 export interface NewTaskPayload {
   type: 'task';
@@ -16,6 +16,7 @@ export interface NewTaskPayload {
 
 export interface NewEventPayload {
   type: 'event';
+  id?: string;
   title: string;
   event_date: string;
   event_time: string;
@@ -29,6 +30,7 @@ export interface NewEventPayload {
 interface EntryModalProps {
   mode: 'task' | 'event';
   defaultDate: string;
+  editingEvent?: CalendarEvent | null;
   onClose: () => void;
   onSave: (payload: NewTaskPayload | NewEventPayload) => Promise<void>;
 }
@@ -46,21 +48,35 @@ const REMINDER_OPTIONS = [
   { value: 'relative:1440', label: '1 dia antes (mesmo horário)' },
 ];
 
+function getInitialReminder(editingEvent?: CalendarEvent | null, mode?: 'task' | 'event') {
+  if (editingEvent) {
+    const preset = editingEvent.reminder_preset || 'relative';
+    if (preset !== 'relative') return `${preset}:0`;
+    return `relative:${editingEvent.notify_minutes_before ?? 15}`;
+  }
+  return mode === 'event' ? 'relative:15' : 'same_day_08:0';
+}
+
 export function EntryModal({
   mode,
   defaultDate,
+  editingEvent,
   onClose,
   onSave,
 }: EntryModalProps) {
-  const [title, setTitle] = useState('');
+  const isEditing = mode === 'event' && Boolean(editingEvent);
+
+  const [title, setTitle] = useState(editingEvent?.title ?? '');
   const [category, setCategory] = useState('Pessoal');
-  const [date, setDate] = useState(defaultDate);
-  const [time, setTime] = useState(mode === 'event' ? '09:00' : '09:00');
+  const [date, setDate] = useState(editingEvent?.event_date ?? defaultDate);
+  const [time, setTime] = useState(
+    editingEvent ? editingEvent.event_time.slice(0, 5) : '09:00'
+  );
   const [priority, setPriority] = useState<Priority>('medium');
-  const [location, setLocation] = useState('');
-  const [notes, setNotes] = useState('');
-  const [reminderChoice, setReminderChoice] = useState(
-    mode === 'event' ? 'relative:15' : 'same_day_08:0'
+  const [location, setLocation] = useState(editingEvent?.location ?? '');
+  const [notes, setNotes] = useState(editingEvent?.notes ?? '');
+  const [reminderChoice, setReminderChoice] = useState(() =>
+    getInitialReminder(editingEvent, mode)
   );
   const [saving, setSaving] = useState(false);
 
@@ -88,6 +104,7 @@ export function EntryModal({
       } else {
         await onSave({
           type: 'event',
+          id: editingEvent?.id,
           title: trimmed,
           event_date: date || defaultDate,
           event_time: time || '09:00',
@@ -113,7 +130,13 @@ export function EntryModal({
     >
       <div className="modal">
         <div className="modal-head">
-          <h2>{mode === 'task' ? 'Nova tarefa' : 'Novo evento'}</h2>
+          <h2>
+            {mode === 'task'
+              ? 'Nova tarefa'
+              : isEditing
+              ? 'Editar evento'
+              : 'Novo evento'}
+          </h2>
           <button className="close" type="button" onClick={onClose}>
             ✕
           </button>
@@ -285,7 +308,7 @@ export function EntryModal({
               Cancelar
             </button>
             <button type="submit" className="btn" disabled={saving}>
-              {saving ? 'Salvando...' : 'Salvar'}
+              {saving ? 'Salvando...' : isEditing ? 'Atualizar' : 'Salvar'}
             </button>
           </div>
         </form>

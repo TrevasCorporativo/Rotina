@@ -71,6 +71,8 @@ export function RotinaApp({
   const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
 
   const [modalMode, setModalMode] = useState<'task' | 'event' | null>(null);
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [pushNeedsPrompt, setPushNeedsPrompt] = useState(false);
   const [refreshState, setRefreshState] = useState<{
@@ -217,6 +219,32 @@ export function RotinaApp({
       }
       setTasks((prev) => [data as Task, ...prev]);
       showToast('Tarefa adicionada');
+    } else if (payload.id) {
+      const { data, error } = await supabase
+        .from('events')
+        .update({
+          title: payload.title,
+          event_date: payload.event_date,
+          event_time: payload.event_time,
+          location: payload.location,
+          notes: payload.notes,
+          notify_enabled: true,
+          notify_minutes_before: payload.notify_minutes_before,
+          reminder_preset: payload.reminder_preset,
+          notified_at: null,
+        })
+        .eq('id', payload.id)
+        .select('*')
+        .single();
+
+      if (error || !data) {
+        showToast('Erro ao atualizar evento.');
+        return;
+      }
+      setEvents((prev) =>
+        prev.map((ev) => (ev.id === payload.id ? (data as CalendarEvent) : ev))
+      );
+      showToast('Evento atualizado');
     } else {
       const { data, error } = await supabase
         .from('events')
@@ -427,7 +455,7 @@ export function RotinaApp({
   }
 
   return (
-    <div className="app">
+    <div className={`app ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
       {profile.must_change_password && (
         <ChangePasswordModal
           displayName={profile.display_name}
@@ -439,8 +467,20 @@ export function RotinaApp({
       )}
 
       <aside className="sidebar">
-        <div className="brand">
-          <BrandLogo size={36} /> Modo Sobrevivência
+        <div className="sidebar-top">
+          <div className="brand">
+            <BrandLogo size={36} />
+            <span className="brand-text">Modo Sobrevivência</span>
+          </div>
+          <button
+            type="button"
+            className="sidebar-collapse-btn"
+            onClick={() => setSidebarCollapsed((c) => !c)}
+            title={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+            aria-label={sidebarCollapsed ? 'Expandir menu' : 'Recolher menu'}
+          >
+            {sidebarCollapsed ? '»' : '«'}
+          </button>
         </div>
         <div>
           <div className="nav-label">ESPAÇO PESSOAL</div>
@@ -448,20 +488,26 @@ export function RotinaApp({
             <button
               className={view === 'dashboard' ? 'active' : ''}
               onClick={() => setView('dashboard')}
+              title="Visão geral"
             >
-              <span className="ico">◫</span>Visão geral
+              <span className="ico">◫</span>
+              <span className="nav-text">Visão geral</span>
             </button>
             <button
               className={view === 'tasks' ? 'active' : ''}
               onClick={() => setView('tasks')}
+              title="Minhas tarefas"
             >
-              <span className="ico">☑</span>Minhas tarefas
+              <span className="ico">☑</span>
+              <span className="nav-text">Minhas tarefas</span>
             </button>
             <button
               className={view === 'calendar' ? 'active' : ''}
               onClick={() => setView('calendar')}
+              title="Agenda"
             >
-              <span className="ico">▦</span>Agenda
+              <span className="ico">▦</span>
+              <span className="nav-text">Agenda</span>
             </button>
           </nav>
         </div>
@@ -716,6 +762,16 @@ export function RotinaApp({
                             </div>
                             {ev.notes && <div className="event-notes">{ev.notes}</div>}
                           </div>
+                          <button
+                            className="event-edit"
+                            title="Editar evento"
+                            onClick={() => {
+                              setEditingEvent(ev);
+                              setModalMode('event');
+                            }}
+                          >
+                            ✎
+                          </button>
                         </div>
                       ))
                     ) : (
@@ -884,7 +940,7 @@ export function RotinaApp({
                     )}
                     {cell.dayEvents.slice(0, 2).map((ev) => (
                       <span key={ev.id} className="event-dot">
-                        {ev.title}
+                        <strong>{ev.event_time.slice(0, 5)}</strong> {ev.title}
                       </span>
                     ))}
                   </div>
@@ -929,13 +985,25 @@ export function RotinaApp({
                         </div>
                         {ev.notes && <div className="event-notes">{ev.notes}</div>}
                       </div>
-                      <button
-                        className="task-delete"
-                        title="Excluir evento"
-                        onClick={() => deleteEvent(ev.id)}
-                      >
-                        ×
-                      </button>
+                      <div className="event-actions">
+                        <button
+                          className="event-edit"
+                          title="Editar evento"
+                          onClick={() => {
+                            setEditingEvent(ev);
+                            setModalMode('event');
+                          }}
+                        >
+                          ✎
+                        </button>
+                        <button
+                          className="task-delete"
+                          title="Excluir evento"
+                          onClick={() => deleteEvent(ev.id)}
+                        >
+                          ×
+                        </button>
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -989,9 +1057,14 @@ export function RotinaApp({
 
       {modalMode && (
         <EntryModal
+          key={editingEvent?.id ?? modalMode}
           mode={modalMode}
           defaultDate={modalMode === 'event' ? selectedDate : todayStr}
-          onClose={() => setModalMode(null)}
+          editingEvent={editingEvent}
+          onClose={() => {
+            setModalMode(null);
+            setEditingEvent(null);
+          }}
           onSave={handleSaveEntry}
         />
       )}
