@@ -14,6 +14,7 @@ import { useTheme } from '@/lib/theme';
 import type {
   CalendarEvent,
   FinanceExpense,
+  FinanceIncome,
   FinanceMonth,
   Profile,
   Task,
@@ -27,8 +28,9 @@ import {
 } from './EntryModal';
 import { FinanceView } from './FinanceView';
 import { ProfileView } from './ProfileView';
+import { TipsView } from './TipsView';
 
-type ViewId = 'dashboard' | 'tasks' | 'calendar' | 'finance' | 'profile';
+type ViewId = 'dashboard' | 'tasks' | 'calendar' | 'finance' | 'tips' | 'profile';
 
 interface RotinaAppProps {
   initialProfile: Profile;
@@ -36,6 +38,7 @@ interface RotinaAppProps {
   initialEvents: CalendarEvent[];
   initialFinanceMonths: FinanceMonth[];
   initialFinanceExpenses: FinanceExpense[];
+  initialFinanceIncomes: FinanceIncome[];
 }
 
 const FUNNY_PHRASES = [
@@ -67,6 +70,7 @@ export function RotinaApp({
   initialEvents,
   initialFinanceMonths,
   initialFinanceExpenses,
+  initialFinanceIncomes,
 }: RotinaAppProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -78,7 +82,32 @@ export function RotinaApp({
   const [dashFilter, setDashFilter] = useState<'all' | 'today' | 'open'>('all');
   const [taskFilter, setTaskFilter] = useState<'all' | 'open' | 'done'>('all');
 
-  const todayStr = useMemo(() => localDate(new Date()), []);
+  const [nowClock, setNowClock] = useState<Date>(() => new Date());
+  const todayStr = useMemo(() => localDate(nowClock), [nowClock]);
+  const nowTimeStr = useMemo(
+    () =>
+      nowClock.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+      }),
+    [nowClock]
+  );
+  const liveClockLabel = useMemo(
+    () =>
+      nowClock.toLocaleTimeString('pt-BR', {
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      }),
+    [nowClock]
+  );
+
+  useEffect(() => {
+    const timer = setInterval(() => setNowClock(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
 
@@ -403,7 +432,9 @@ export function RotinaApp({
           : new Date(y, m, n);
       const s = localDate(dt);
       const outside = n < 1 || n > days;
-      const dayEvents = events.filter((e) => e.event_date === s);
+      const dayEvents = events
+        .filter((e) => e.event_date === s)
+        .sort((a, b) => a.event_time.localeCompare(b.event_time));
       const holiday = getHolidayForDate(s);
       return { dateStr: s, dayNum: dt.getDate(), outside, dayEvents, holiday };
     });
@@ -431,15 +462,37 @@ export function RotinaApp({
     tasks: 'Minhas tarefas',
     calendar: 'Agenda',
     finance: 'Financeiro',
+    tips: 'Dicas',
     profile: 'Meu perfil',
   };
+
+  function isTaskOverdue(t: Task): boolean {
+    if (t.done || !t.due_date) return false;
+    if (t.due_date < todayStr) return true;
+    if (t.due_date === todayStr && t.due_time) {
+      return t.due_time.slice(0, 5) < nowTimeStr;
+    }
+    return false;
+  }
+
+  function isEventOverdue(ev: CalendarEvent): boolean {
+    if (ev.event_date < todayStr) return true;
+    if (ev.event_date === todayStr) {
+      return ev.event_time.slice(0, 5) < nowTimeStr;
+    }
+    return false;
+  }
 
   function renderTaskItem(t: Task) {
     const prioLabel =
       t.priority === 'high' ? 'Alta' : t.priority === 'medium' ? 'Média' : 'Baixa';
+    const overdue = isTaskOverdue(t);
 
     return (
-      <div key={t.id} className={`task ${t.done ? 'done' : ''}`}>
+      <div
+        key={t.id}
+        className={`task ${t.done ? 'done' : ''} ${overdue ? 'overdue' : ''}`}
+      >
         <input
           className="check"
           type="checkbox"
@@ -533,6 +586,14 @@ export function RotinaApp({
               <span className="ico">＄</span>
               <span className="nav-text">Financeiro</span>
             </button>
+            <button
+              className={view === 'tips' ? 'active' : ''}
+              onClick={() => setView('tips')}
+              title="Dicas"
+            >
+              <span className="ico">✦</span>
+              <span className="nav-text">Dicas</span>
+            </button>
           </nav>
         </div>
 
@@ -542,24 +603,36 @@ export function RotinaApp({
             <span>Um boleto, uma tarefa e um surto de cada vez.</span>
           </div>
 
-          <button
-            type="button"
-            className={`sidebar-profile-btn ${view === 'profile' ? 'active' : ''}`}
-            onClick={() => setView('profile')}
-          >
-            <div className="avatar" style={{ width: 34, height: 34, fontSize: 12 }}>
-              {profile.avatar_url ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={profile.avatar_url} alt={profile.display_name} />
-              ) : (
-                initials
-              )}
-            </div>
-            <div className="sidebar-profile-info">
-              <strong>{profile.display_name}</strong>
-              <span>Meu perfil</span>
-            </div>
-          </button>
+          <div className="sidebar-user-row">
+            <button
+              type="button"
+              className={`sidebar-profile-btn ${view === 'profile' ? 'active' : ''}`}
+              onClick={() => setView('profile')}
+              title="Meu perfil"
+            >
+              <div className="avatar" style={{ width: 34, height: 34, fontSize: 12 }}>
+                {profile.avatar_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={profile.avatar_url} alt={profile.display_name} />
+                ) : (
+                  initials
+                )}
+              </div>
+              <div className="sidebar-profile-info">
+                <strong>{profile.display_name}</strong>
+                <span>Meu perfil</span>
+              </div>
+            </button>
+            <button
+              type="button"
+              className="sidebar-logout-btn"
+              onClick={handleLogout}
+              title="Sair"
+              aria-label="Sair"
+            >
+              ↗
+            </button>
+          </div>
         </div>
       </aside>
 
@@ -587,6 +660,9 @@ export function RotinaApp({
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
+            <div className="live-clock" aria-label="Hora atual">
+              {liveClockLabel}
+            </div>
             <div className="today-pill">{todayLabel}</div>
             <span className="user-welcome">{profile.display_name}</span>
             <button className="logout-btn" onClick={handleLogout}>
@@ -774,7 +850,7 @@ export function RotinaApp({
                       upcomingEvents.map((ev) => (
                         <div
                           key={ev.id}
-                          className="event"
+                          className={`event ${isEventOverdue(ev) ? 'overdue' : ''}`}
                           style={{ cursor: 'pointer' }}
                           title="Clique 2x para editar"
                           onDoubleClick={() => {
@@ -1007,7 +1083,7 @@ export function RotinaApp({
                     {cell.dayEvents.slice(0, 2).map((ev) => (
                       <span
                         key={ev.id}
-                        className="event-dot"
+                        className={`event-dot ${isEventOverdue(ev) ? 'overdue' : ''}`}
                         title="Clique 2x para editar este evento"
                         onDoubleClick={(e) => {
                           e.stopPropagation();
@@ -1052,7 +1128,7 @@ export function RotinaApp({
                   selectedDayEvents.map((ev) => (
                     <div
                       key={ev.id}
-                      className="event"
+                      className={`event ${isEventOverdue(ev) ? 'overdue' : ''}`}
                       style={{ cursor: 'pointer' }}
                       title="Clique 2x para editar"
                       onDoubleClick={() => {
@@ -1103,7 +1179,21 @@ export function RotinaApp({
             userId={profile.id}
             initialMonths={initialFinanceMonths}
             initialExpenses={initialFinanceExpenses}
+            initialIncomes={initialFinanceIncomes}
             onToast={showToast}
+          />
+        )}
+
+        {view === 'tips' && (
+          <TipsView
+            todayStr={todayStr}
+            nowTimeStr={nowTimeStr}
+            tasks={tasks}
+            events={events}
+            financeMonths={initialFinanceMonths}
+            financeExpenses={initialFinanceExpenses}
+            financeIncomes={initialFinanceIncomes}
+            onNavigate={(target) => setView(target)}
           />
         )}
 
@@ -1144,7 +1234,14 @@ export function RotinaApp({
           onClick={() => setView('finance')}
         >
           <span>＄</span>
-          <small>Financeiro</small>
+          <small>Finanças</small>
+        </button>
+        <button
+          className={view === 'tips' ? 'active' : ''}
+          onClick={() => setView('tips')}
+        >
+          <span>✦</span>
+          <small>Dicas</small>
         </button>
         <button
           className={view === 'profile' ? 'active' : ''}

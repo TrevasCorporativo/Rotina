@@ -57,6 +57,21 @@ export interface FinanceExpense {
   updated_at: string;
 }
 
+export interface FinanceIncome {
+  id: string;
+  user_id: string;
+  month_key: string;
+  title: string;
+  amount: number;
+  category: string;
+  receive_day: number | null;
+  recurrence_group_id: string | null;
+  installment_index: number | null;
+  installment_total: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface CalendarEvent {
   id: string;
   user_id: string;
@@ -92,6 +107,21 @@ export interface FinanceExpense {
   category: string;
   due_day: number | null;
   paid: boolean;
+  recurrence_group_id: string | null;
+  installment_index: number | null;
+  installment_total: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface FinanceIncome {
+  id: string;
+  user_id: string;
+  month_key: string;
+  title: string;
+  amount: number;
+  category: string;
+  receive_day: number | null;
   recurrence_group_id: string | null;
   installment_index: number | null;
   installment_total: number | null;

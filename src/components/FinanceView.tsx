@@ -2,16 +2,17 @@
 
 import { useMemo, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
-import type { FinanceExpense, FinanceMonth } from '@/lib/types';
+import type { FinanceExpense, FinanceIncome, FinanceMonth } from '@/lib/types';
 
 interface FinanceViewProps {
   userId: string;
   initialMonths: FinanceMonth[];
   initialExpenses: FinanceExpense[];
+  initialIncomes: FinanceIncome[];
   onToast: (msg: string) => void;
 }
 
-const CATEGORIES = [
+const EXPENSE_CATEGORIES = [
   'Moradia',
   'Contas',
   'Alimentação',
@@ -21,6 +22,8 @@ const CATEGORIES = [
   'Assinaturas',
   'Outros',
 ];
+
+const INCOME_CATEGORIES = ['Salário', 'Freelance', 'Renda Extra', 'Outros'];
 
 const CATEGORY_COLORS: Record<string, string> = {
   Moradia: '#268675',
@@ -64,30 +67,46 @@ export function FinanceView({
   userId,
   initialMonths,
   initialExpenses,
+  initialIncomes,
   onToast,
 }: FinanceViewProps) {
   const currentMonthKey = useMemo(() => getMonthKey(new Date()), []);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
-  const [months, setMonths] = useState<FinanceMonth[]>(initialMonths);
+  const [months] = useState<FinanceMonth[]>(initialMonths);
   const [expenses, setExpenses] = useState<FinanceExpense[]>(initialExpenses);
+  const [incomes, setIncomes] = useState<FinanceIncome[]>(initialIncomes);
 
-  const [editingIncome, setEditingIncome] = useState(false);
-  const [incomeInput, setIncomeInput] = useState('');
-  const [savingIncome, setSavingIncome] = useState(false);
+  // Modal state (expense or income, create or edit)
+  const [modalMode, setModalMode] = useState<'expense' | 'income' | null>(null);
+  const [editingExpense, setEditingExpense] = useState<FinanceExpense | null>(null);
+  const [editingIncome, setEditingIncome] = useState<FinanceIncome | null>(null);
 
-  const [modalOpen, setModalOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [amount, setAmount] = useState('');
   const [category, setCategory] = useState('Contas');
-  const [dueDay, setDueDay] = useState('');
-  const [recurrenceMode, setRecurrenceMode] = useState<'single' | 'installments' | 'fixed'>('single');
+  const [dayOfMonth, setDayOfMonth] = useState('');
+  const [recurrenceMode, setRecurrenceMode] = useState<
+    'single' | 'installments' | 'fixed'
+  >('single');
   const [monthsCount, setMonthsCount] = useState('3');
-  const [savingExpense, setSavingExpense] = useState(false);
+  const [saving, setSaving] = useState(false);
 
-  const monthIncome = useMemo(() => {
+  const monthIncomes = useMemo(() => {
+    return incomes
+      .filter((i) => i.month_key === selectedMonth)
+      .sort((a, b) => (a.receive_day ?? 99) - (b.receive_day ?? 99));
+  }, [incomes, selectedMonth]);
+
+  const legacyIncome = useMemo(() => {
     const found = months.find((m) => m.month_key === selectedMonth);
     return Number(found?.estimated_income ?? 0);
   }, [months, selectedMonth]);
+
+  const totalIncome = useMemo(
+    () =>
+      monthIncomes.reduce((acc, i) => acc + Number(i.amount), 0) + legacyIncome,
+    [monthIncomes, legacyIncome]
+  );
 
   const monthExpenses = useMemo(() => {
     return expenses
@@ -111,8 +130,9 @@ export function FinanceView({
     [monthExpenses]
   );
 
-  const balance = monthIncome - totalExpenses;
-  const paidPct = totalExpenses > 0 ? Math.round((paidTotal / totalExpenses) * 100) : 0;
+  const balance = totalIncome - totalExpenses;
+  const paidPct =
+    totalExpenses > 0 ? Math.round((paidTotal / totalExpenses) * 100) : 0;
 
   const categoryBreakdown = useMemo(() => {
     const map = new Map<string, number>();
@@ -129,108 +149,186 @@ export function FinanceView({
       .sort((a, b) => b.total - a.total);
   }, [monthExpenses, totalExpenses]);
 
-  const maxCompare = Math.max(monthIncome, totalExpenses, 1);
+  const maxCompare = Math.max(totalIncome, totalExpenses, 1);
 
-  async function handleSaveIncome(e: React.FormEvent) {
-    e.preventDefault();
-    const parsed = Number(incomeInput.replace(',', '.'));
-    if (Number.isNaN(parsed) || parsed < 0) {
-      onToast('Informe um valor válido.');
-      return;
-    }
-
-    setSavingIncome(true);
-    const supabase = createClient();
-    const { data, error } = await supabase
-      .from('finance_months')
-      .upsert(
-        {
-          user_id: userId,
-          month_key: selectedMonth,
-          estimated_income: parsed,
-        },
-        { onConflict: 'user_id,month_key' }
-      )
-      .select('*')
-      .single();
-
-    setSavingIncome(false);
-
-    if (error || !data) {
-      onToast('Não foi possível salvar a receita.');
-      return;
-    }
-
-    setMonths((prev) => {
-      const idx = prev.findIndex((m) => m.month_key === selectedMonth);
-      if (idx >= 0) {
-        const copy = [...prev];
-        copy[idx] = data as FinanceMonth;
-        return copy;
-      }
-      return [...prev, data as FinanceMonth];
-    });
-    setEditingIncome(false);
-    onToast('Receita estimada atualizada!');
+  function openNewModal(type: 'expense' | 'income') {
+    setEditingExpense(null);
+    setEditingIncome(null);
+    setTitle('');
+    setAmount('');
+    setCategory(type === 'expense' ? 'Contas' : 'Salário');
+    setDayOfMonth('');
+    setRecurrenceMode('single');
+    setMonthsCount('3');
+    setModalMode(type);
   }
 
-  async function handleAddExpense(e: React.FormEvent) {
+  function openEditExpense(exp: FinanceExpense) {
+    setEditingIncome(null);
+    setEditingExpense(exp);
+    setTitle(exp.title);
+    setAmount(String(exp.amount));
+    setCategory(exp.category);
+    setDayOfMonth(exp.due_day ? String(exp.due_day) : '');
+    setModalMode('expense');
+  }
+
+  function openEditIncome(inc: FinanceIncome) {
+    setEditingExpense(null);
+    setEditingIncome(inc);
+    setTitle(inc.title);
+    setAmount(String(inc.amount));
+    setCategory(inc.category);
+    setDayOfMonth(inc.receive_day ? String(inc.receive_day) : '');
+    setModalMode('income');
+  }
+
+  async function handleSaveModal(e: React.FormEvent) {
     e.preventDefault();
     const trimmed = title.trim();
     const parsedAmount = Number(amount.replace(',', '.'));
     if (!trimmed || Number.isNaN(parsedAmount) || parsedAmount <= 0) {
-      onToast('Preencha título e valor válido.');
+      onToast('Preencha descrição e valor válido.');
       return;
     }
 
-    const totalMonths =
-      recurrenceMode === 'single'
-        ? 1
-        : recurrenceMode === 'fixed'
-        ? 12
-        : Math.min(60, Math.max(2, Number(monthsCount) || 2));
+    const parsedDay = dayOfMonth
+      ? Math.min(31, Math.max(1, Number(dayOfMonth)))
+      : null;
 
-    const parsedDueDay = dueDay ? Math.min(31, Math.max(1, Number(dueDay))) : null;
-    const groupId = totalMonths > 1 ? crypto.randomUUID() : null;
-
-    const rows = Array.from({ length: totalMonths }, (_, i) => ({
-      user_id: userId,
-      month_key: addMonthsToKey(selectedMonth, i),
-      title: trimmed,
-      amount: parsedAmount,
-      category,
-      due_day: parsedDueDay,
-      paid: false,
-      recurrence_group_id: groupId,
-      installment_index: totalMonths > 1 ? i + 1 : null,
-      installment_total: totalMonths > 1 ? totalMonths : null,
-    }));
-
-    setSavingExpense(true);
+    setSaving(true);
     const supabase = createClient();
-    const { data, error } = await supabase
-      .from('finance_expenses')
-      .insert(rows)
-      .select('*');
 
-    setSavingExpense(false);
+    try {
+      if (modalMode === 'expense') {
+        if (editingExpense) {
+          const { data, error } = await supabase
+            .from('finance_expenses')
+            .update({
+              title: trimmed,
+              amount: parsedAmount,
+              category,
+              due_day: parsedDay,
+            })
+            .eq('id', editingExpense.id)
+            .select('*')
+            .single();
 
-    if (error || !data) {
-      onToast('Erro ao salvar gasto.');
-      return;
+          if (error || !data) {
+            onToast('Erro ao atualizar gasto.');
+            return;
+          }
+          setExpenses((prev) =>
+            prev.map((item) =>
+              item.id === editingExpense.id ? (data as FinanceExpense) : item
+            )
+          );
+          onToast('Gasto atualizado!');
+        } else {
+          const totalMonths =
+            recurrenceMode === 'single'
+              ? 1
+              : recurrenceMode === 'fixed'
+              ? 12
+              : Math.min(60, Math.max(2, Number(monthsCount) || 2));
+
+          const groupId = totalMonths > 1 ? crypto.randomUUID() : null;
+          const rows = Array.from({ length: totalMonths }, (_, i) => ({
+            user_id: userId,
+            month_key: addMonthsToKey(selectedMonth, i),
+            title: trimmed,
+            amount: parsedAmount,
+            category,
+            due_day: parsedDay,
+            paid: false,
+            recurrence_group_id: groupId,
+            installment_index: totalMonths > 1 ? i + 1 : null,
+            installment_total: totalMonths > 1 ? totalMonths : null,
+          }));
+
+          const { data, error } = await supabase
+            .from('finance_expenses')
+            .insert(rows)
+            .select('*');
+
+          if (error || !data) {
+            onToast('Erro ao salvar gasto.');
+            return;
+          }
+          setExpenses((prev) => [...prev, ...(data as FinanceExpense[])]);
+          onToast(
+            totalMonths > 1
+              ? `Gasto lançado para ${totalMonths} meses!`
+              : 'Gasto adicionado!'
+          );
+        }
+      } else if (modalMode === 'income') {
+        if (editingIncome) {
+          const { data, error } = await supabase
+            .from('finance_incomes')
+            .update({
+              title: trimmed,
+              amount: parsedAmount,
+              category,
+              receive_day: parsedDay,
+            })
+            .eq('id', editingIncome.id)
+            .select('*')
+            .single();
+
+          if (error || !data) {
+            onToast('Erro ao atualizar receita.');
+            return;
+          }
+          setIncomes((prev) =>
+            prev.map((item) =>
+              item.id === editingIncome.id ? (data as FinanceIncome) : item
+            )
+          );
+          onToast('Receita atualizada!');
+        } else {
+          const totalMonths =
+            recurrenceMode === 'single'
+              ? 1
+              : recurrenceMode === 'fixed'
+              ? 12
+              : Math.min(60, Math.max(2, Number(monthsCount) || 2));
+
+          const groupId = totalMonths > 1 ? crypto.randomUUID() : null;
+          const rows = Array.from({ length: totalMonths }, (_, i) => ({
+            user_id: userId,
+            month_key: addMonthsToKey(selectedMonth, i),
+            title: trimmed,
+            amount: parsedAmount,
+            category,
+            receive_day: parsedDay,
+            recurrence_group_id: groupId,
+            installment_index: totalMonths > 1 ? i + 1 : null,
+            installment_total: totalMonths > 1 ? totalMonths : null,
+          }));
+
+          const { data, error } = await supabase
+            .from('finance_incomes')
+            .insert(rows)
+            .select('*');
+
+          if (error || !data) {
+            onToast('Erro ao salvar receita.');
+            return;
+          }
+          setIncomes((prev) => [...prev, ...(data as FinanceIncome[])]);
+          onToast(
+            totalMonths > 1
+              ? `Receita lançada para ${totalMonths} meses!`
+              : 'Receita adicionada!'
+          );
+        }
+      }
+
+      setModalMode(null);
+    } finally {
+      setSaving(false);
     }
-
-    setExpenses((prev) => [...prev, ...(data as FinanceExpense[])]);
-    setTitle('');
-    setAmount('');
-    setDueDay('');
-    setRecurrenceMode('single');
-    setModalOpen(false);
-    onToast(
-      totalMonths > 1
-        ? `Gasto lançado para ${totalMonths} meses!`
-        : 'Gasto adicionado!'
-    );
   }
 
   async function togglePaid(exp: FinanceExpense) {
@@ -302,6 +400,129 @@ export function FinanceView({
     onToast('Gasto excluído');
   }
 
+  async function deleteIncome(inc: FinanceIncome) {
+    const supabase = createClient();
+
+    if (inc.recurrence_group_id) {
+      const deleteAllFuture = confirm(
+        'Esta receita é recorrente.\n\nOK = Excluir esta e as próximas\nCancelar = Excluir somente este mês'
+      );
+
+      if (deleteAllFuture) {
+        const { error } = await supabase
+          .from('finance_incomes')
+          .delete()
+          .eq('recurrence_group_id', inc.recurrence_group_id)
+          .gte('month_key', inc.month_key);
+
+        if (error) {
+          onToast('Erro ao excluir recorrência.');
+          return;
+        }
+        setIncomes((prev) =>
+          prev.filter(
+            (item) =>
+              !(
+                item.recurrence_group_id === inc.recurrence_group_id &&
+                item.month_key >= inc.month_key
+              )
+          )
+        );
+        onToast('Receitas futuras excluídas');
+        return;
+      }
+    } else if (!confirm('Excluir esta receita?')) {
+      return;
+    }
+
+    const { error } = await supabase
+      .from('finance_incomes')
+      .delete()
+      .eq('id', inc.id);
+
+    if (error) {
+      onToast('Erro ao excluir receita.');
+      return;
+    }
+
+    setIncomes((prev) => prev.filter((item) => item.id !== inc.id));
+    onToast('Receita excluída');
+  }
+
+  function handleExportPDF() {
+    const win = window.open('', '_blank', 'width=900,height=700');
+    if (!win) {
+      onToast('Permita pop-ups para exportar o PDF.');
+      return;
+    }
+
+    const monthTitle = formatMonthLabel(selectedMonth);
+    const incomeRows = monthIncomes
+      .map(
+        (i) =>
+          `<tr><td>${i.title}</td><td>${i.category}</td><td>${
+            i.receive_day ? 'Dia ' + i.receive_day : '—'
+          }</td><td style="text-align:right">${formatBRL(Number(i.amount))}</td></tr>`
+      )
+      .join('');
+
+    const expenseRows = monthExpenses
+      .map(
+        (e) =>
+          `<tr><td>${e.title}${
+            e.installment_index && e.installment_total
+              ? ` (${e.installment_index}/${e.installment_total})`
+              : ''
+          }</td><td>${e.category}</td><td>${
+            e.due_day ? 'Dia ' + e.due_day : '—'
+          }</td><td>${e.paid ? 'Pago' : 'Em aberto'}</td><td style="text-align:right">${formatBRL(
+            Number(e.amount)
+          )}</td></tr>`
+      )
+      .join('');
+
+    win.document.write(`<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Panorama Financeiro — ${monthTitle}</title>
+<style>
+  body { font-family: Inter, system-ui, sans-serif; color: #20242c; padding: 32px; }
+  h1 { margin: 0 0 4px; color: #268675; text-transform: capitalize; }
+  .sub { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
+  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
+  .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
+  .card small { color: #6b7280; font-size: 11px; display: block; }
+  .card strong { font-size: 18px; margin-top: 4px; display: block; }
+  h2 { font-size: 15px; margin: 22px 0 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th, td { padding: 8px 6px; border-bottom: 1px solid #f0f1f4; text-align: left; }
+  th { color: #6b7280; font-weight: 600; }
+</style>
+</head>
+<body>
+  <h1>Panorama Financeiro · ${monthTitle}</h1>
+  <div class="sub">Modo Sobrevivência · Gerado em ${new Date().toLocaleString('pt-BR')}</div>
+  <div class="cards">
+    <div class="card"><small>Receitas</small><strong>${formatBRL(totalIncome)}</strong></div>
+    <div class="card"><small>Gastos</small><strong>${formatBRL(totalExpenses)}</strong></div>
+    <div class="card"><small>Saldo previsto</small><strong>${formatBRL(balance)}</strong></div>
+    <div class="card"><small>Já pago</small><strong>${paidPct}% (${formatBRL(paidTotal)})</strong></div>
+  </div>
+  <h2>Receitas</h2>
+  <table><thead><tr><th>Descrição</th><th>Categoria</th><th>Dia</th><th style="text-align:right">Valor</th></tr></thead><tbody>${
+    incomeRows || '<tr><td colspan="4">Nenhuma receita lançada.</td></tr>'
+  }</tbody></table>
+  <h2>Gastos</h2>
+  <table><thead><tr><th>Descrição</th><th>Categoria</th><th>Venc.</th><th>Status</th><th style="text-align:right">Valor</th></tr></thead><tbody>${
+    expenseRows || '<tr><td colspan="5">Nenhum gasto lançado.</td></tr>'
+  }</tbody></table>
+  <script>window.onload = () => { window.print(); };</script>
+</body>
+</html>`);
+    win.document.close();
+  }
+
   return (
     <section>
       <div className="page-head">
@@ -309,11 +530,11 @@ export function FinanceView({
           <div className="eyebrow">CONTROLE SIMPLES DO MÊS</div>
           <h1>Financeiro</h1>
           <p className="subtitle">
-            Lance sua receita estimada, seus gastos mensais e contas parceladas ou fixas.
+            Lance múltiplas receitas e gastos mensais, parcelados ou fixos.
           </p>
         </div>
 
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
           <div className="calendar-toolbar">
             <button
               className="btn secondary small"
@@ -339,9 +560,23 @@ export function FinanceView({
             </button>
           </div>
           <button
-            className="btn"
+            className="btn secondary small"
             type="button"
-            onClick={() => setModalOpen(true)}
+            onClick={handleExportPDF}
+          >
+            📄 Exportar PDF
+          </button>
+          <button
+            className="btn secondary small"
+            type="button"
+            onClick={() => openNewModal('income')}
+          >
+            ＋ Nova receita
+          </button>
+          <button
+            className="btn small"
+            type="button"
+            onClick={() => openNewModal('expense')}
           >
             ＋ Novo gasto
           </button>
@@ -351,51 +586,13 @@ export function FinanceView({
       <div className="stats">
         <div className="stat">
           <div className="stat-top">
-            Receita estimada
-            <button
-              type="button"
-              className="chip"
-              style={{ padding: '2px 8px' }}
-              onClick={() => {
-                setIncomeInput(monthIncome ? String(monthIncome) : '');
-                setEditingIncome((prev) => !prev);
-              }}
-            >
-              {editingIncome ? 'Fechar' : 'Editar'}
-            </button>
+            Receita estimada <span className="stat-icon">↗</span>
           </div>
-          {editingIncome ? (
-            <form
-              onSubmit={handleSaveIncome}
-              style={{ display: 'flex', gap: 6, marginTop: 10 }}
-            >
-              <input
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="Ex.: 4500"
-                value={incomeInput}
-                onChange={(e) => setIncomeInput(e.target.value)}
-                autoFocus
-                style={{
-                  width: '100%',
-                  border: '1px solid var(--line)',
-                  background: 'var(--input-bg)',
-                  borderRadius: 8,
-                  padding: '6px 8px',
-                  color: 'var(--text)',
-                }}
-              />
-              <button className="btn small" type="submit" disabled={savingIncome}>
-                {savingIncome ? '...' : 'OK'}
-              </button>
-            </form>
-          ) : (
-            <>
-              <strong style={{ color: 'var(--accent)' }}>{formatBRL(monthIncome)}</strong>
-              <small>Clique em Editar para definir</small>
-            </>
-          )}
+          <strong style={{ color: 'var(--accent)' }}>{formatBRL(totalIncome)}</strong>
+          <small>
+            {monthIncomes.length}{' '}
+            {monthIncomes.length === 1 ? 'entrada no mês' : 'entradas no mês'}
+          </small>
         </div>
 
         <div className="stat">
@@ -429,65 +626,133 @@ export function FinanceView({
       </div>
 
       <div className="content-grid">
-        <div className="panel">
-          <div className="panel-head">
-            <h2>Gastos de {formatMonthLabel(selectedMonth)}</h2>
-            <button
-              className="btn secondary small"
-              type="button"
-              onClick={() => setModalOpen(true)}
-            >
-              ＋ Adicionar
-            </button>
+        <div>
+          <div className="panel">
+            <div className="panel-head">
+              <h2>Receitas de {formatMonthLabel(selectedMonth)}</h2>
+              <button
+                className="btn secondary small"
+                type="button"
+                onClick={() => openNewModal('income')}
+              >
+                ＋ Receita
+              </button>
+            </div>
+
+            <div className="task-list">
+              {monthIncomes.length ? (
+                monthIncomes.map((inc) => (
+                  <div key={inc.id} className="task">
+                    <div className="task-main">
+                      <div className="task-title">{inc.title}</div>
+                      <div className="task-meta">
+                        <span>{inc.category}</span>
+                        {inc.receive_day && (
+                          <>
+                            <span>·</span>
+                            <span>Dia {inc.receive_day}</span>
+                          </>
+                        )}
+                        {inc.installment_index && inc.installment_total && (
+                          <span className="tag low">
+                            {inc.installment_index}/{inc.installment_total}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <strong style={{ fontSize: 13, color: 'var(--green)', whiteSpace: 'nowrap' }}>
+                      + {formatBRL(Number(inc.amount))}
+                    </strong>
+                    <button
+                      className="event-edit"
+                      title="Editar receita"
+                      onClick={() => openEditIncome(inc)}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      className="task-delete"
+                      title="Excluir receita"
+                      onClick={() => deleteIncome(inc)}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ))
+              ) : (
+                <div className="empty">
+                  Nenhuma receita lançada neste mês. Clique em &ldquo;＋ Nova receita&rdquo;.
+                </div>
+              )}
+            </div>
           </div>
 
-          <div className="task-list">
-            {monthExpenses.length ? (
-              monthExpenses.map((exp) => (
-                <div key={exp.id} className={`task ${exp.paid ? 'done' : ''}`}>
-                  <input
-                    type="checkbox"
-                    className="check"
-                    checked={exp.paid}
-                    aria-label="Marcar como pago"
-                    onChange={() => togglePaid(exp)}
-                  />
-                  <div className="task-main">
-                    <div className="task-title">{exp.title}</div>
-                    <div className="task-meta">
-                      <span>{exp.category}</span>
-                      {exp.due_day && (
-                        <>
-                          <span>·</span>
-                          <span>Dia {exp.due_day}</span>
-                        </>
-                      )}
-                      {exp.installment_index && exp.installment_total && (
-                        <span className="tag">
-                          {exp.installment_index}/{exp.installment_total}
-                        </span>
-                      )}
-                      {exp.paid && <span className="tag low">Pago</span>}
+          <div className="panel">
+            <div className="panel-head">
+              <h2>Gastos de {formatMonthLabel(selectedMonth)}</h2>
+              <button
+                className="btn secondary small"
+                type="button"
+                onClick={() => openNewModal('expense')}
+              >
+                ＋ Gasto
+              </button>
+            </div>
+
+            <div className="task-list">
+              {monthExpenses.length ? (
+                monthExpenses.map((exp) => (
+                  <div key={exp.id} className={`task ${exp.paid ? 'done' : ''}`}>
+                    <input
+                      type="checkbox"
+                      className="check"
+                      checked={exp.paid}
+                      aria-label="Marcar como pago"
+                      onChange={() => togglePaid(exp)}
+                    />
+                    <div className="task-main">
+                      <div className="task-title">{exp.title}</div>
+                      <div className="task-meta">
+                        <span>{exp.category}</span>
+                        {exp.due_day && (
+                          <>
+                            <span>·</span>
+                            <span>Dia {exp.due_day}</span>
+                          </>
+                        )}
+                        {exp.installment_index && exp.installment_total && (
+                          <span className="tag">
+                            {exp.installment_index}/{exp.installment_total}
+                          </span>
+                        )}
+                        {exp.paid && <span className="tag low">Pago</span>}
+                      </div>
                     </div>
+                    <strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
+                      {formatBRL(Number(exp.amount))}
+                    </strong>
+                    <button
+                      className="event-edit"
+                      title="Editar gasto"
+                      onClick={() => openEditExpense(exp)}
+                    >
+                      ✎
+                    </button>
+                    <button
+                      className="task-delete"
+                      title="Excluir gasto"
+                      onClick={() => deleteExpense(exp)}
+                    >
+                      ×
+                    </button>
                   </div>
-                  <strong style={{ fontSize: 13, whiteSpace: 'nowrap' }}>
-                    {formatBRL(Number(exp.amount))}
-                  </strong>
-                  <button
-                    className="task-delete"
-                    title="Excluir gasto"
-                    onClick={() => deleteExpense(exp)}
-                  >
-                    ×
-                  </button>
+                ))
+              ) : (
+                <div className="empty">
+                  Nenhum gasto lançado neste mês. Clique em &ldquo;＋ Novo gasto&rdquo;.
                 </div>
-              ))
-            ) : (
-              <div className="empty">
-                Nenhum gasto lançado neste mês. Clique em &ldquo;＋ Novo gasto&rdquo; para
-                começar.
-              </div>
-            )}
+              )}
+            </div>
           </div>
         </div>
 
@@ -501,12 +766,12 @@ export function FinanceView({
               <div>
                 <div className="progress-label">
                   <span>Receita estimada</span>
-                  <strong>{formatBRL(monthIncome)}</strong>
+                  <strong>{formatBRL(totalIncome)}</strong>
                 </div>
                 <div className="progress" style={{ height: 10 }}>
                   <span
                     style={{
-                      width: `${Math.round((monthIncome / maxCompare) * 100)}%`,
+                      width: `${Math.round((totalIncome / maxCompare) * 100)}%`,
                       background: 'var(--green)',
                     }}
                   />
@@ -523,7 +788,7 @@ export function FinanceView({
                     style={{
                       width: `${Math.round((totalExpenses / maxCompare) * 100)}%`,
                       background:
-                        totalExpenses > monthIncome && monthIncome > 0
+                        totalExpenses > totalIncome && totalIncome > 0
                           ? 'var(--red)'
                           : 'var(--orange)',
                     }}
@@ -568,34 +833,46 @@ export function FinanceView({
         </div>
       </div>
 
-      {modalOpen && (
+      {modalMode && (
         <div
           className="modal-backdrop"
           onClick={(e) => {
-            if (e.target === e.currentTarget) setModalOpen(false);
+            if (e.target === e.currentTarget) setModalMode(null);
           }}
         >
           <div className="modal">
             <div className="modal-head">
-              <h2>Novo gasto</h2>
+              <h2>
+                {modalMode === 'expense'
+                  ? editingExpense
+                    ? 'Editar gasto'
+                    : 'Novo gasto'
+                  : editingIncome
+                  ? 'Editar receita'
+                  : 'Nova receita'}
+              </h2>
               <button
                 className="close"
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={() => setModalMode(null)}
               >
                 ✕
               </button>
             </div>
 
-            <form onSubmit={handleAddExpense}>
+            <form onSubmit={handleSaveModal}>
               <div className="field">
-                <label htmlFor="expTitle">Descrição</label>
+                <label htmlFor="finTitle">Descrição</label>
                 <input
-                  id="expTitle"
+                  id="finTitle"
                   required
                   maxLength={80}
                   autoFocus
-                  placeholder="Ex.: Aluguel, Internet, Mercado..."
+                  placeholder={
+                    modalMode === 'expense'
+                      ? 'Ex.: Aluguel, Internet, Mercado...'
+                      : 'Ex.: Salário, Freela, Aluguel recebido...'
+                  }
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
@@ -603,9 +880,9 @@ export function FinanceView({
 
               <div className="form-row">
                 <div className="field">
-                  <label htmlFor="expAmount">Valor (R$)</label>
+                  <label htmlFor="finAmount">Valor (R$)</label>
                   <input
-                    id="expAmount"
+                    id="finAmount"
                     type="number"
                     step="0.01"
                     min="0.01"
@@ -616,13 +893,16 @@ export function FinanceView({
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="expCategory">Categoria</label>
+                  <label htmlFor="finCategory">Categoria</label>
                   <select
-                    id="expCategory"
+                    id="finCategory"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                   >
-                    {CATEGORIES.map((c) => (
+                    {(modalMode === 'expense'
+                      ? EXPENSE_CATEGORIES
+                      : INCOME_CATEGORIES
+                    ).map((c) => (
                       <option key={c}>{c}</option>
                     ))}
                   </select>
@@ -631,60 +911,77 @@ export function FinanceView({
 
               <div className="form-row">
                 <div className="field">
-                  <label htmlFor="expDueDay">Dia de vencimento (opcional)</label>
+                  <label htmlFor="finDay">
+                    {modalMode === 'expense'
+                      ? 'Dia de vencimento (opcional)'
+                      : 'Dia de recebimento (opcional)'}
+                  </label>
                   <input
-                    id="expDueDay"
+                    id="finDay"
                     type="number"
                     min="1"
                     max="31"
-                    placeholder="Ex.: 10"
-                    value={dueDay}
-                    onChange={(e) => setDueDay(e.target.value)}
+                    placeholder="Ex.: 5"
+                    value={dayOfMonth}
+                    onChange={(e) => setDayOfMonth(e.target.value)}
                   />
                 </div>
-                <div className="field">
-                  <label htmlFor="expRecurrence">Repetição</label>
-                  <select
-                    id="expRecurrence"
-                    value={recurrenceMode}
-                    onChange={(e) =>
-                      setRecurrenceMode(
-                        e.target.value as 'single' | 'installments' | 'fixed'
-                      )
-                    }
-                  >
-                    <option value="single">Somente este mês</option>
-                    <option value="installments">Repetir por X meses</option>
-                    <option value="fixed">Conta fixa (12 meses)</option>
-                  </select>
-                </div>
+
+                {!editingExpense && !editingIncome && (
+                  <div className="field">
+                    <label htmlFor="finRecurrence">Repetição</label>
+                    <select
+                      id="finRecurrence"
+                      value={recurrenceMode}
+                      onChange={(e) =>
+                        setRecurrenceMode(
+                          e.target.value as 'single' | 'installments' | 'fixed'
+                        )
+                      }
+                    >
+                      <option value="single">Somente este mês</option>
+                      <option value="installments">Repetir por X meses</option>
+                      <option value="fixed">
+                        {modalMode === 'expense'
+                          ? 'Conta fixa (12 meses)'
+                          : 'Receita fixa (12 meses)'}
+                      </option>
+                    </select>
+                  </div>
+                )}
               </div>
 
-              {recurrenceMode === 'installments' && (
-                <div className="field">
-                  <label htmlFor="expMonthsCount">Quantidade de meses (X)</label>
-                  <input
-                    id="expMonthsCount"
-                    type="number"
-                    min="2"
-                    max="60"
-                    required
-                    value={monthsCount}
-                    onChange={(e) => setMonthsCount(e.target.value)}
-                  />
-                </div>
-              )}
+              {!editingExpense &&
+                !editingIncome &&
+                recurrenceMode === 'installments' && (
+                  <div className="field">
+                    <label htmlFor="finMonthsCount">Quantidade de meses (X)</label>
+                    <input
+                      id="finMonthsCount"
+                      type="number"
+                      min="2"
+                      max="60"
+                      required
+                      value={monthsCount}
+                      onChange={(e) => setMonthsCount(e.target.value)}
+                    />
+                  </div>
+                )}
 
               <div className="modal-actions">
                 <button
                   type="button"
                   className="btn secondary"
-                  onClick={() => setModalOpen(false)}
+                  onClick={() => setModalMode(null)}
                 >
                   Cancelar
                 </button>
-                <button type="submit" className="btn" disabled={savingExpense}>
-                  {savingExpense ? 'Salvando...' : 'Salvar gasto'}
+                <button type="submit" className="btn" disabled={saving}>
+                  {saving
+                    ? 'Salvando...'
+                    : editingExpense || editingIncome
+                    ? 'Atualizar'
+                    : 'Salvar'}
                 </button>
               </div>
             </form>
@@ -694,4 +991,3 @@ export function FinanceView({
     </section>
   );
 }
-

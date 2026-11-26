@@ -5,6 +5,7 @@ import { RotinaApp } from '@/components/RotinaApp';
 import type {
   CalendarEvent,
   FinanceExpense,
+  FinanceIncome,
   FinanceMonth,
   Profile,
   Task,
@@ -26,6 +27,7 @@ async function HomeContent() {
     { data: events },
     { data: financeMonths },
     { data: financeExpenses },
+    { data: financeIncomes },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase
@@ -42,6 +44,10 @@ async function HomeContent() {
       .from('finance_expenses')
       .select('*')
       .order('month_key', { ascending: true }),
+    supabase
+      .from('finance_incomes')
+      .select('*')
+      .order('month_key', { ascending: true }),
   ]);
 
   if (!profile) {
@@ -55,6 +61,7 @@ async function HomeContent() {
       initialEvents={(events ?? []) as CalendarEvent[]}
       initialFinanceMonths={(financeMonths ?? []) as FinanceMonth[]}
       initialFinanceExpenses={(financeExpenses ?? []) as FinanceExpense[]}
+      initialFinanceIncomes={(financeIncomes ?? []) as FinanceIncome[]}
     />
   );
 }

@@ -292,29 +292,26 @@ async function handleDispatch(request: Request) {
       ]);
 
       const evCount = todayEvents?.length ?? 0;
-      const todayTaskCount = (openTasks ?? []).filter(
-        (t) => t.due_date === dateStr
-      ).length;
+      const todayTasks = (openTasks ?? []).filter((t) => t.due_date === dateStr);
       const totalOpen = openTasks?.length ?? 0;
 
       const summaryParts: string[] = [];
       if (evCount > 0) {
-        const firstEv = todayEvents![0];
-        summaryParts.push(
-          `${evCount} ${evCount === 1 ? 'compromisso' : 'compromissos'} hoje (próximo: ${firstEv.event_time.slice(0, 5)} ${firstEv.title})`
-        );
+        const evList = todayEvents!
+          .map((e) => `${e.event_time.slice(0, 5)} ${e.title}`)
+          .join(', ');
+        summaryParts.push(`Agenda (${evCount}): ${evList}`);
       } else {
-        summaryParts.push('Nenhum compromisso marcado para hoje');
+        summaryParts.push('Sem compromissos hoje');
       }
 
-      if (todayTaskCount > 0) {
-        summaryParts.push(
-          `${todayTaskCount} ${todayTaskCount === 1 ? 'tarefa para hoje' : 'tarefas para hoje'}`
-        );
+      if (todayTasks.length > 0) {
+        const tList = todayTasks.map((t) => t.title).join(', ');
+        summaryParts.push(`Tarefas de hoje (${todayTasks.length}): ${tList}`);
       } else if (totalOpen > 0) {
         summaryParts.push(`${totalOpen} tarefas em aberto`);
       } else {
-        summaryParts.push('todas as tarefas em dia');
+        summaryParts.push('Tarefas em dia');
       }
 
       const delivered = await sendToUserDevices(admin, subs, {
