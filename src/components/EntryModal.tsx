@@ -11,6 +11,7 @@ export interface NewTaskPayload {
   due_time: string | null;
   priority: Priority;
   notify_enabled: boolean;
+  reminder_preset: string;
 }
 
 export interface NewEventPayload {
@@ -19,8 +20,10 @@ export interface NewEventPayload {
   event_date: string;
   event_time: string;
   location: string | null;
+  notes: string | null;
   notify_enabled: boolean;
   notify_minutes_before: number;
+  reminder_preset: string;
 }
 
 interface EntryModalProps {
@@ -29,6 +32,19 @@ interface EntryModalProps {
   onClose: () => void;
   onSave: (payload: NewTaskPayload | NewEventPayload) => Promise<void>;
 }
+
+const REMINDER_OPTIONS = [
+  { value: 'relative:0', label: 'Na hora exata' },
+  { value: 'relative:15', label: '15 minutos antes' },
+  { value: 'relative:30', label: '30 minutos antes' },
+  { value: 'relative:60', label: '1 hora antes' },
+  { value: 'relative:120', label: '2 horas antes' },
+  { value: 'relative:360', label: '6 horas antes' },
+  { value: 'same_day_08:0', label: 'No dia pela manhã (08h)' },
+  { value: 'day_before_08:0', label: '1 dia antes pela manhã (08h)' },
+  { value: 'day_before_20:0', label: '1 dia antes à noite (20h)' },
+  { value: 'relative:1440', label: '1 dia antes (mesmo horário)' },
+];
 
 export function EntryModal({
   mode,
@@ -39,11 +55,13 @@ export function EntryModal({
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Pessoal');
   const [date, setDate] = useState(defaultDate);
-  const [time, setTime] = useState(mode === 'event' ? '09:00' : '');
+  const [time, setTime] = useState(mode === 'event' ? '09:00' : '09:00');
   const [priority, setPriority] = useState<Priority>('medium');
   const [location, setLocation] = useState('');
-  const [notifyEnabled, setNotifyEnabled] = useState(true);
-  const [notifyMinutesBefore, setNotifyMinutesBefore] = useState(15);
+  const [notes, setNotes] = useState('');
+  const [reminderChoice, setReminderChoice] = useState(
+    mode === 'event' ? 'relative:15' : 'same_day_08:0'
+  );
   const [saving, setSaving] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -51,6 +69,9 @@ export function EntryModal({
     const trimmed = title.trim();
     if (!trimmed) return;
     setSaving(true);
+
+    const [preset, minsStr] = reminderChoice.split(':');
+    const minutesBefore = Number(minsStr || 0);
 
     try {
       if (mode === 'task') {
@@ -61,7 +82,8 @@ export function EntryModal({
           due_date: date || null,
           due_time: time || null,
           priority,
-          notify_enabled: notifyEnabled,
+          notify_enabled: true,
+          reminder_preset: preset,
         });
       } else {
         await onSave({
@@ -70,8 +92,10 @@ export function EntryModal({
           event_date: date || defaultDate,
           event_time: time || '09:00',
           location: location.trim() || null,
-          notify_enabled: notifyEnabled,
-          notify_minutes_before: notifyMinutesBefore,
+          notes: notes.trim() || null,
+          notify_enabled: true,
+          notify_minutes_before: minutesBefore,
+          reminder_preset: preset,
         });
       }
       onClose();
@@ -115,20 +139,34 @@ export function EntryModal({
 
           {mode === 'task' ? (
             <>
-              <div className="field">
-                <label htmlFor="entryCategory">Categoria</label>
-                <select
-                  id="entryCategory"
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                >
-                  <option>Trabalho</option>
-                  <option>Pessoal</option>
-                  <option>Estudos</option>
-                  <option>Saúde</option>
-                  <option>Financeiro</option>
-                  <option>Outros</option>
-                </select>
+              <div className="form-row">
+                <div className="field">
+                  <label htmlFor="entryCategory">Categoria</label>
+                  <select
+                    id="entryCategory"
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value)}
+                  >
+                    <option>Trabalho</option>
+                    <option>Pessoal</option>
+                    <option>Estudos</option>
+                    <option>Saúde</option>
+                    <option>Financeiro</option>
+                    <option>Outros</option>
+                  </select>
+                </div>
+                <div className="field">
+                  <label htmlFor="entryPriority">Prioridade</label>
+                  <select
+                    id="entryPriority"
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value as Priority)}
+                  >
+                    <option value="medium">Média</option>
+                    <option value="high">Alta</option>
+                    <option value="low">Baixa</option>
+                  </select>
+                </div>
               </div>
 
               <div className="form-row">
@@ -142,7 +180,7 @@ export function EntryModal({
                   />
                 </div>
                 <div className="field">
-                  <label htmlFor="entryTaskTime">Horário (lembrete)</label>
+                  <label htmlFor="entryTaskTime">Horário</label>
                   <input
                     id="entryTaskTime"
                     type="time"
@@ -153,15 +191,16 @@ export function EntryModal({
               </div>
 
               <div className="field">
-                <label htmlFor="entryPriority">Prioridade</label>
+                <label htmlFor="entryTaskReminder">Notificação automática</label>
                 <select
-                  id="entryPriority"
-                  value={priority}
-                  onChange={(e) => setPriority(e.target.value as Priority)}
+                  id="entryTaskReminder"
+                  value={reminderChoice}
+                  onChange={(e) => setReminderChoice(e.target.value)}
                 >
-                  <option value="medium">Média</option>
-                  <option value="high">Alta</option>
-                  <option value="low">Baixa</option>
+                  <option value="relative:0">No horário da tarefa</option>
+                  <option value="same_day_08:0">No dia pela manhã (08h)</option>
+                  <option value="day_before_08:0">1 dia antes pela manhã (08h)</option>
+                  <option value="day_before_20:0">1 dia antes à noite (20h)</option>
                 </select>
               </div>
             </>
@@ -204,38 +243,42 @@ export function EntryModal({
                   <label htmlFor="entryNotifyBefore">Avisar antes</label>
                   <select
                     id="entryNotifyBefore"
-                    value={notifyMinutesBefore}
-                    onChange={(e) => setNotifyMinutesBefore(Number(e.target.value))}
+                    value={reminderChoice}
+                    onChange={(e) => setReminderChoice(e.target.value)}
                   >
-                    <option value={0}>Na hora exata</option>
-                    <option value={15}>15 min antes</option>
-                    <option value={30}>30 min antes</option>
-                    <option value={60}>1 hora antes</option>
+                    {REMINDER_OPTIONS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
                   </select>
                 </div>
+              </div>
+
+              <div className="field">
+                <label htmlFor="entryNotes">Observações (opcional)</label>
+                <textarea
+                  id="entryNotes"
+                  rows={3}
+                  maxLength={400}
+                  placeholder="Ex.: Levar documentos, chegar 10 min antes..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                />
               </div>
             </>
           )}
 
-          <label
+          <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 9,
-              fontSize: 12,
-              color: '#555d6a',
+              fontSize: 11,
+              color: 'var(--accent)',
+              fontWeight: 600,
               marginTop: 4,
-              cursor: 'pointer',
             }}
           >
-            <input
-              type="checkbox"
-              className="check"
-              checked={notifyEnabled}
-              onChange={(e) => setNotifyEnabled(e.target.checked)}
-            />
-            Enviar notificação push no celular/navegador
-          </label>
+            🔔 Notificação push ativada automaticamente para este item.
+          </div>
 
           <div className="modal-actions">
             <button type="button" className="btn secondary" onClick={onClose}>
@@ -250,4 +293,3 @@ export function EntryModal({
     </div>
   );
 }
-

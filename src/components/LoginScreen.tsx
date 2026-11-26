@@ -2,10 +2,12 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useTheme } from '@/lib/theme';
 import { BrandLogo } from './BrandLogo';
 
 export function LoginScreen() {
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
   const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -92,6 +94,14 @@ export function LoginScreen() {
       </section>
 
       <section className="access-form-side">
+        <button
+          type="button"
+          className="theme-toggle access-theme-btn"
+          onClick={toggleTheme}
+          aria-label="Alternar tema"
+        >
+          {theme === 'dark' ? '☀️ Claro' : '🌙 Escuro'}
+        </button>
         <form className="access-form" onSubmit={handleSubmit}>
           <div className="eyebrow">CENTRAL DE COMANDO</div>
           <h2>Vamos sobreviver?</h2>

@@ -35,6 +35,24 @@ function toPseudoUtcMs(dateStr: string, timeStr: string) {
   return new Date(`${dateStr}T${normalizedTime}Z`).getTime();
 }
 
+function computeTriggerMs(
+  dateStr: string,
+  timeStr: string,
+  preset: string | null | undefined,
+  minutesBefore: number
+) {
+  if (preset === 'same_day_08') {
+    return toPseudoUtcMs(dateStr, '08:00:00');
+  }
+  if (preset === 'day_before_08') {
+    return toPseudoUtcMs(dateStr, '08:00:00') - 24 * 3600_000;
+  }
+  if (preset === 'day_before_20') {
+    return toPseudoUtcMs(dateStr, '20:00:00') - 24 * 3600_000;
+  }
+  return toPseudoUtcMs(dateStr, timeStr) - minutesBefore * 60_000;
+}
+
 async function sendToUserDevices(
   admin: ReturnType<typeof createAdminClient>,
   subs: Array<{ id: string; endpoint: string; p256dh: string; auth: string }>,
@@ -112,7 +130,7 @@ async function handleDispatch(request: Request) {
   // 1. Dispatch due events
   const { data: pendingEvents } = await admin
     .from('events')
-    .select('id, user_id, title, event_date, event_time, location, notify_minutes_before')
+    .select('id, user_id, title, event_date, event_time, location, notes, notify_minutes_before, reminder_preset')
     .eq('notify_enabled', true)
     .is('notified_at', null);
 
@@ -125,13 +143,19 @@ async function handleDispatch(request: Request) {
     const tz = prof?.timezone || 'America/Sao_Paulo';
     const nowMs = getNowInTimeZone(tz);
     const eventMs = toPseudoUtcMs(ev.event_date, ev.event_time || '09:00:00');
-    const triggerMs = eventMs - (ev.notify_minutes_before ?? 15) * 60_000;
+    const triggerMs = computeTriggerMs(
+      ev.event_date,
+      ev.event_time || '09:00:00',
+      ev.reminder_preset,
+      ev.notify_minutes_before ?? 15
+    );
     const staleCutoffMs = eventMs + 12 * 3600_000;
 
     if (nowMs >= triggerMs && nowMs <= staleCutoffMs) {
       const timeLabel = (ev.event_time || '').slice(0, 5);
       const bodyParts = [`Às ${timeLabel}`];
       if (ev.location) bodyParts.push(ev.location);
+      if (ev.notes) bodyParts.push(ev.notes);
 
       const delivered = await sendToUserDevices(admin, subs, {
         title: `Compromisso: ${ev.title}`,
@@ -153,7 +177,7 @@ async function handleDispatch(request: Request) {
   // 2. Dispatch due tasks
   const { data: pendingTasks } = await admin
     .from('tasks')
-    .select('id, user_id, title, category, due_date, due_time')
+    .select('id, user_id, title, category, due_date, due_time, reminder_preset')
     .eq('done', false)
     .eq('notify_enabled', true)
     .is('notified_at', null)
@@ -169,9 +193,15 @@ async function handleDispatch(request: Request) {
     const tz = prof?.timezone || 'America/Sao_Paulo';
     const nowMs = getNowInTimeZone(tz);
     const taskMs = toPseudoUtcMs(task.due_date, task.due_time || '09:00:00');
+    const triggerMs = computeTriggerMs(
+      task.due_date,
+      task.due_time || '09:00:00',
+      task.reminder_preset,
+      0
+    );
     const staleCutoffMs = taskMs + 24 * 3600_000;
 
-    if (nowMs >= taskMs && nowMs <= staleCutoffMs) {
+    if (nowMs >= triggerMs && nowMs <= staleCutoffMs) {
       const delivered = await sendToUserDevices(admin, subs, {
         title: `Tarefa pendente: ${task.title}`,
         body: `${task.category}${task.due_time ? ` · ${task.due_time.slice(0, 5)}` : ' · Hoje'}`,

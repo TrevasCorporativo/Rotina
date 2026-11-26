@@ -24,6 +24,7 @@ export interface Task {
   priority: Priority;
   done: boolean;
   notify_enabled: boolean;
+  reminder_preset?: string;
   notified_at: string | null;
   created_at: string;
   updated_at: string;
@@ -36,9 +37,11 @@ export interface CalendarEvent {
   event_date: string;
   event_time: string;
   location: string | null;
+  notes: string | null;
   category: string;
   notify_enabled: boolean;
   notify_minutes_before: number;
+  reminder_preset?: string;
   notified_at: string | null;
   created_at: string;
   updated_at: string;

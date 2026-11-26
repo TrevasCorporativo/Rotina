@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { getHolidayForDate } from '@/lib/holidays';
 import {
   getExistingPushSubscription,
   isPushSupported,
   subscribeToPush,
 } from '@/lib/push';
+import { useTheme } from '@/lib/theme';
 import type { CalendarEvent, Profile, Task } from '@/lib/types';
-import { ChangePasswordModal } from './ChangePasswordModal';
 import { BrandLogo } from './BrandLogo';
+import { ChangePasswordModal } from './ChangePasswordModal';
 import {
   EntryModal,
   type NewEventPayload,
@@ -55,6 +57,7 @@ export function RotinaApp({
   initialEvents,
 }: RotinaAppProps) {
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
@@ -69,7 +72,7 @@ export function RotinaApp({
 
   const [modalMode, setModalMode] = useState<'task' | 'event' | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
-  const [pushBannerVisible, setPushBannerVisible] = useState(false);
+  const [pushNeedsPrompt, setPushNeedsPrompt] = useState(false);
 
   const [phrase] = useState(
     () => FUNNY_PHRASES[Math.floor(Math.random() * FUNNY_PHRASES.length)]
@@ -93,9 +96,18 @@ export function RotinaApp({
 
     if (isPushSupported()) {
       getExistingPushSubscription()
-        .then((sub) => {
-          if (!sub && Notification.permission !== 'denied') {
-            setPushBannerVisible(true);
+        .then(async (sub) => {
+          if (sub) return;
+          if (Notification.permission === 'granted') {
+            await subscribeToPush().catch(() => {});
+          } else if (Notification.permission === 'default') {
+            // Try automatic activation; if browser requires user gesture, show banner
+            try {
+              await subscribeToPush();
+              setPushNeedsPrompt(false);
+            } catch {
+              setPushNeedsPrompt(true);
+            }
           }
         })
         .catch(() => {});
@@ -112,7 +124,7 @@ export function RotinaApp({
   async function handleEnablePushQuick() {
     try {
       await subscribeToPush();
-      setPushBannerVisible(false);
+      setPushNeedsPrompt(false);
       showToast('Notificações ativadas neste aparelho!');
     } catch (err: unknown) {
       showToast((err as Error).message || 'Não foi possível ativar notificações.');
@@ -138,7 +150,8 @@ export function RotinaApp({
           due_date: payload.due_date,
           due_time: payload.due_time,
           priority: payload.priority,
-          notify_enabled: payload.notify_enabled,
+          notify_enabled: true,
+          reminder_preset: payload.reminder_preset,
         })
         .select('*')
         .single();
@@ -158,8 +171,10 @@ export function RotinaApp({
           event_date: payload.event_date,
           event_time: payload.event_time,
           location: payload.location,
-          notify_enabled: payload.notify_enabled,
+          notes: payload.notes,
+          notify_enabled: true,
           notify_minutes_before: payload.notify_minutes_before,
+          reminder_preset: payload.reminder_preset,
         })
         .select('*')
         .single();
@@ -293,7 +308,8 @@ export function RotinaApp({
       const s = localDate(dt);
       const outside = n < 1 || n > days;
       const dayEvents = events.filter((e) => e.event_date === s);
-      return { dateStr: s, dayNum: dt.getDate(), outside, dayEvents };
+      const holiday = getHolidayForDate(s);
+      return { dateStr: s, dayNum: dt.getDate(), outside, dayEvents, holiday };
     });
   }, [currentMonth, events]);
 
@@ -302,6 +318,8 @@ export function RotinaApp({
       .filter((e) => e.event_date === selectedDate)
       .sort((a, b) => a.event_time.localeCompare(b.event_time));
   }, [events, selectedDate]);
+
+  const selectedHoliday = getHolidayForDate(selectedDate);
 
   const initials = profile.display_name
     .split(' ')
@@ -390,17 +408,33 @@ export function RotinaApp({
             >
               <span className="ico">▦</span>Agenda
             </button>
-            <button
-              className={view === 'profile' ? 'active' : ''}
-              onClick={() => setView('profile')}
-            >
-              <span className="ico">☺</span>Meu perfil
-            </button>
           </nav>
         </div>
-        <div className="sidebar-bottom">
-          <strong>Respira. Vai dar certo. Talvez.</strong>
-          <span>Um boleto, uma tarefa e um surto de cada vez.</span>
+
+        <div className="sidebar-footer">
+          <div className="sidebar-bottom">
+            <strong>Respira. Vai dar certo. Talvez.</strong>
+            <span>Um boleto, uma tarefa e um surto de cada vez.</span>
+          </div>
+
+          <button
+            type="button"
+            className={`sidebar-profile-btn ${view === 'profile' ? 'active' : ''}`}
+            onClick={() => setView('profile')}
+          >
+            <div className="avatar" style={{ width: 34, height: 34, fontSize: 12 }}>
+              {profile.avatar_url ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={profile.avatar_url} alt={profile.display_name} />
+              ) : (
+                initials
+              )}
+            </div>
+            <div className="sidebar-profile-info">
+              <strong>{profile.display_name}</strong>
+              <span>Meu perfil</span>
+            </div>
+          </button>
         </div>
       </aside>
 
@@ -411,15 +445,14 @@ export function RotinaApp({
             <span>{crumbLabel[view]}</span>
           </div>
           <div className="top-actions">
-            {pushBannerVisible && (
-              <button
-                type="button"
-                className="btn secondary small"
-                onClick={handleEnablePushQuick}
-              >
-                🔔 Ativar alertas
-              </button>
-            )}
+            <button
+              type="button"
+              className="theme-toggle"
+              onClick={toggleTheme}
+              title="Alternar tema claro/escuro"
+            >
+              {theme === 'dark' ? '☀️' : '🌙'}
+            </button>
             <div className="today-pill">{todayLabel}</div>
             <span className="user-welcome">{profile.display_name}</span>
             <button className="logout-btn" onClick={handleLogout}>
@@ -442,6 +475,22 @@ export function RotinaApp({
             </button>
           </div>
         </div>
+
+        {pushNeedsPrompt && (
+          <div className="push-alert-bar">
+            <span>
+              🔔 <strong>Notificações obrigatórias:</strong> ative neste dispositivo para
+              receber alertas de tarefas e compromissos mesmo com o site fechado.
+            </span>
+            <button
+              type="button"
+              className="btn small"
+              onClick={handleEnablePushQuick}
+            >
+              Ativar agora
+            </button>
+          </div>
+        )}
 
         {view === 'dashboard' && (
           <section>
@@ -494,7 +543,7 @@ export function RotinaApp({
                   Concluídas{' '}
                   <span
                     className="stat-icon"
-                    style={{ background: '#e7f5f1', color: '#268675' }}
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
                   >
                     ✓
                   </span>
@@ -507,7 +556,7 @@ export function RotinaApp({
                   Compromissos{' '}
                   <span
                     className="stat-icon"
-                    style={{ background: '#fff5e9', color: '#df9342' }}
+                    style={{ background: 'rgba(223, 147, 66, 0.14)', color: 'var(--orange)' }}
                   >
                     ◷
                   </span>
@@ -601,6 +650,7 @@ export function RotinaApp({
                             <div className="event-sub">
                               {ev.location || ev.category || 'Compromisso'}
                             </div>
+                            {ev.notes && <div className="event-notes">{ev.notes}</div>}
                           </div>
                         </div>
                       ))
@@ -695,7 +745,7 @@ export function RotinaApp({
                 <div className="eyebrow">SEU TEMPO, BEM PLANEJADO</div>
                 <h1>Agenda</h1>
                 <p className="subtitle">
-                  Visualize seus compromissos e planeje os próximos dias.
+                  Visualize seus compromissos, feriados e planeje os próximos dias.
                 </p>
               </div>
               <button className="btn" onClick={() => setModalMode('event')}>
@@ -763,6 +813,11 @@ export function RotinaApp({
                     }}
                   >
                     <div className="cell-num">{cell.dayNum}</div>
+                    {cell.holiday && (
+                      <span className="holiday-dot" title={cell.holiday}>
+                        {cell.holiday}
+                      </span>
+                    )}
                     {cell.dayEvents.slice(0, 2).map((ev) => (
                       <span key={ev.id} className="event-dot">
                         {ev.title}
@@ -790,6 +845,13 @@ export function RotinaApp({
                   ＋ Adicionar
                 </button>
               </div>
+
+              {selectedHoliday && (
+                <div className="holiday-banner">
+                  🎉 Feriado nacional: <strong>{selectedHoliday}</strong>
+                </div>
+              )}
+
               <div className="agenda-list">
                 {selectedDayEvents.length ? (
                   selectedDayEvents.map((ev) => (
@@ -801,6 +863,7 @@ export function RotinaApp({
                         <div className="event-sub">
                           {ev.location || 'Sem local informado'}
                         </div>
+                        {ev.notes && <div className="event-notes">{ev.notes}</div>}
                       </div>
                       <button
                         className="task-delete"
@@ -828,6 +891,38 @@ export function RotinaApp({
         )}
       </main>
 
+      {/* Mobile Bottom Navigation */}
+      <nav className="mobile-bottom-nav" aria-label="Navegação mobile">
+        <button
+          className={view === 'dashboard' ? 'active' : ''}
+          onClick={() => setView('dashboard')}
+        >
+          <span>◫</span>
+          <small>Início</small>
+        </button>
+        <button
+          className={view === 'tasks' ? 'active' : ''}
+          onClick={() => setView('tasks')}
+        >
+          <span>☑</span>
+          <small>Tarefas</small>
+        </button>
+        <button
+          className={view === 'calendar' ? 'active' : ''}
+          onClick={() => setView('calendar')}
+        >
+          <span>▦</span>
+          <small>Agenda</small>
+        </button>
+        <button
+          className={view === 'profile' ? 'active' : ''}
+          onClick={() => setView('profile')}
+        >
+          <span>☺</span>
+          <small>Perfil</small>
+        </button>
+      </nav>
+
       {modalMode && (
         <EntryModal
           mode={modalMode}
@@ -841,4 +936,3 @@ export function RotinaApp({
     </div>
   );
 }
-
