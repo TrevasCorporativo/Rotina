@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import * as webpush from 'web-push';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getDailyMotivation, getDailyVerse } from '@/lib/daily-messages';
 
 function configureVapid() {
   const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
@@ -12,7 +13,7 @@ function configureVapid() {
   webpush.setVapidDetails(subject, publicKey, privateKey);
 }
 
-function getNowInTimeZone(timeZone: string) {
+function getLocalClock(timeZone: string) {
   const now = new Date();
   const parts = new Intl.DateTimeFormat('sv-SE', {
     timeZone,
@@ -26,8 +27,13 @@ function getNowInTimeZone(timeZone: string) {
   }).formatToParts(now);
 
   const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
-  const isoLocal = `${map.year}-${map.month}-${map.day}T${map.hour}:${map.minute}:${map.second}`;
-  return new Date(`${isoLocal}Z`).getTime();
+  const dateStr = `${map.year}-${map.month}-${map.day}`;
+  const isoLocal = `${dateStr}T${map.hour}:${map.minute}:${map.second}`;
+  return {
+    dateStr,
+    hour: Number(map.hour),
+    nowMs: new Date(`${isoLocal}Z`).getTime(),
+  };
 }
 
 function toPseudoUtcMs(dateStr: string, timeStr: string) {
@@ -49,6 +55,10 @@ function computeTriggerMs(
   }
   if (preset === 'day_before_20') {
     return toPseudoUtcMs(dateStr, '20:00:00') - 24 * 3600_000;
+  }
+  if (preset && preset.startsWith('relative:')) {
+    const mins = Number(preset.split(':')[1] || 0);
+    return toPseudoUtcMs(dateStr, timeStr) - mins * 60_000;
   }
   return toPseudoUtcMs(dateStr, timeStr) - minutesBefore * 60_000;
 }
@@ -88,26 +98,28 @@ export async function POST(request: Request) {
 }
 
 async function handleDispatch(request: Request) {
+  const url = new URL(request.url);
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret) {
     const authHeader = request.headers.get('authorization');
-    const url = new URL(request.url);
     const querySecret = url.searchParams.get('secret');
     if (authHeader !== `Bearer ${cronSecret}` && querySecret !== cronSecret) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
   }
 
+  const forceDaily = url.searchParams.get('forceDaily') === '1';
+
   configureVapid();
   const admin = createAdminClient();
 
   const { data: profiles } = await admin
     .from('profiles')
-    .select('id, timezone, notify_tasks, notify_events');
+    .select(
+      'id, display_name, timezone, notify_tasks, notify_events, last_daily_summary_date, last_daily_inspiration_date'
+    );
 
-  const profileMap = new Map(
-    (profiles ?? []).map((p) => [p.id, p])
-  );
+  const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
   const { data: subscriptions } = await admin
     .from('push_subscriptions')
@@ -126,11 +138,15 @@ async function handleDispatch(request: Request) {
 
   let sentEvents = 0;
   let sentTasks = 0;
+  let sentDailySummaries = 0;
+  let sentDailyInspirations = 0;
 
   // 1. Dispatch due events
   const { data: pendingEvents } = await admin
     .from('events')
-    .select('id, user_id, title, event_date, event_time, location, notes, notify_minutes_before, reminder_preset')
+    .select(
+      'id, user_id, title, event_date, event_time, location, notes, notify_minutes_before, reminder_preset'
+    )
     .eq('notify_enabled', true)
     .is('notified_at', null);
 
@@ -141,7 +157,7 @@ async function handleDispatch(request: Request) {
     if (!subs || subs.length === 0) continue;
 
     const tz = prof?.timezone || 'America/Sao_Paulo';
-    const nowMs = getNowInTimeZone(tz);
+    const { nowMs } = getLocalClock(tz);
     const eventMs = toPseudoUtcMs(ev.event_date, ev.event_time || '09:00:00');
     const triggerMs = computeTriggerMs(
       ev.event_date,
@@ -174,13 +190,14 @@ async function handleDispatch(request: Request) {
     }
   }
 
-  // 2. Dispatch due tasks
+  // 2. Dispatch due tasks (supports multiple reminder_presets)
   const { data: pendingTasks } = await admin
     .from('tasks')
-    .select('id, user_id, title, category, due_date, due_time, reminder_preset')
+    .select(
+      'id, user_id, title, category, due_date, due_time, reminder_preset, reminder_presets, notified_presets'
+    )
     .eq('done', false)
     .eq('notify_enabled', true)
-    .is('notified_at', null)
     .not('due_date', 'is', null);
 
   for (const task of pendingTasks ?? []) {
@@ -191,30 +208,158 @@ async function handleDispatch(request: Request) {
     if (!subs || subs.length === 0) continue;
 
     const tz = prof?.timezone || 'America/Sao_Paulo';
-    const nowMs = getNowInTimeZone(tz);
+    const { nowMs } = getLocalClock(tz);
     const taskMs = toPseudoUtcMs(task.due_date, task.due_time || '09:00:00');
-    const triggerMs = computeTriggerMs(
-      task.due_date,
-      task.due_time || '09:00:00',
-      task.reminder_preset,
-      0
-    );
     const staleCutoffMs = taskMs + 24 * 3600_000;
 
-    if (nowMs >= triggerMs && nowMs <= staleCutoffMs) {
+    const presets: string[] =
+      Array.isArray(task.reminder_presets) && task.reminder_presets.length > 0
+        ? task.reminder_presets
+        : [task.reminder_preset || 'same_day_08'];
+    const alreadyNotified: string[] = Array.isArray(task.notified_presets)
+      ? task.notified_presets
+      : [];
+
+    const newlyNotified = [...alreadyNotified];
+    let sentForTask = false;
+
+    for (const preset of presets) {
+      if (alreadyNotified.includes(preset)) continue;
+      const triggerMs = computeTriggerMs(
+        task.due_date,
+        task.due_time || '09:00:00',
+        preset,
+        0
+      );
+
+      if (nowMs >= triggerMs && nowMs <= staleCutoffMs) {
+        if (!sentForTask) {
+          const delivered = await sendToUserDevices(admin, subs, {
+            title: `Tarefa: ${task.title}`,
+            body: `${task.category}${
+              task.due_time ? ` · ${task.due_time.slice(0, 5)}` : ' · Hoje'
+            }`,
+            url: '/?view=tasks',
+            tag: `task-${task.id}-${preset}`,
+          });
+          if (delivered > 0) {
+            sentForTask = true;
+            sentTasks++;
+            newlyNotified.push(preset);
+          }
+        } else {
+          newlyNotified.push(preset);
+        }
+      }
+    }
+
+    if (newlyNotified.length > alreadyNotified.length) {
+      await admin
+        .from('tasks')
+        .update({
+          notified_presets: newlyNotified,
+          notified_at: new Date().toISOString(),
+        })
+        .eq('id', task.id);
+    }
+  }
+
+  // 3. Daily 08:00 AM Summary + Motivational Message + Daily Verse
+  for (const prof of profiles ?? []) {
+    const subs = subsByUser.get(prof.id);
+    if (!subs || subs.length === 0) continue;
+
+    const tz = prof.timezone || 'America/Sao_Paulo';
+    const { dateStr, hour } = getLocalClock(tz);
+    const firstName = (prof.display_name || 'Você').split(' ')[0];
+
+    const shouldSendSummary =
+      forceDaily || (hour >= 8 && prof.last_daily_summary_date !== dateStr);
+
+    if (shouldSendSummary) {
+      const [{ data: todayEvents }, { data: openTasks }] = await Promise.all([
+        admin
+          .from('events')
+          .select('title, event_time')
+          .eq('user_id', prof.id)
+          .eq('event_date', dateStr)
+          .order('event_time', { ascending: true }),
+        admin
+          .from('tasks')
+          .select('title, due_date')
+          .eq('user_id', prof.id)
+          .eq('done', false),
+      ]);
+
+      const evCount = todayEvents?.length ?? 0;
+      const todayTaskCount = (openTasks ?? []).filter(
+        (t) => t.due_date === dateStr
+      ).length;
+      const totalOpen = openTasks?.length ?? 0;
+
+      const summaryParts: string[] = [];
+      if (evCount > 0) {
+        const firstEv = todayEvents![0];
+        summaryParts.push(
+          `${evCount} ${evCount === 1 ? 'compromisso' : 'compromissos'} hoje (próximo: ${firstEv.event_time.slice(0, 5)} ${firstEv.title})`
+        );
+      } else {
+        summaryParts.push('Nenhum compromisso marcado para hoje');
+      }
+
+      if (todayTaskCount > 0) {
+        summaryParts.push(
+          `${todayTaskCount} ${todayTaskCount === 1 ? 'tarefa para hoje' : 'tarefas para hoje'}`
+        );
+      } else if (totalOpen > 0) {
+        summaryParts.push(`${totalOpen} tarefas em aberto`);
+      } else {
+        summaryParts.push('todas as tarefas em dia');
+      }
+
       const delivered = await sendToUserDevices(admin, subs, {
-        title: `Tarefa pendente: ${task.title}`,
-        body: `${task.category}${task.due_time ? ` · ${task.due_time.slice(0, 5)}` : ' · Hoje'}`,
-        url: '/?view=tasks',
-        tag: `task-${task.id}`,
+        title: `☀️ Bom dia, ${firstName}! Resumo do dia`,
+        body: summaryParts.join(' · '),
+        url: '/',
+        tag: `daily-summary-${dateStr}`,
       });
 
       if (delivered > 0) {
         await admin
-          .from('tasks')
-          .update({ notified_at: new Date().toISOString() })
-          .eq('id', task.id);
-        sentTasks++;
+          .from('profiles')
+          .update({ last_daily_summary_date: dateStr })
+          .eq('id', prof.id);
+        sentDailySummaries++;
+      }
+    }
+
+    const shouldSendInspiration =
+      forceDaily || (hour >= 8 && prof.last_daily_inspiration_date !== dateStr);
+
+    if (shouldSendInspiration) {
+      const motivation = getDailyMotivation(dateStr);
+      const verse = getDailyVerse(dateStr);
+
+      const d1 = await sendToUserDevices(admin, subs, {
+        title: `✨ Mensagem do dia, ${firstName}`,
+        body: motivation,
+        url: '/',
+        tag: `daily-motivation-${dateStr}`,
+      });
+
+      const d2 = await sendToUserDevices(admin, subs, {
+        title: `📖 Versículo do dia · ${verse.reference}`,
+        body: `"${verse.text}"`,
+        url: '/',
+        tag: `daily-verse-${dateStr}`,
+      });
+
+      if (d1 > 0 || d2 > 0) {
+        await admin
+          .from('profiles')
+          .update({ last_daily_inspiration_date: dateStr })
+          .eq('id', prof.id);
+        sentDailyInspirations++;
       }
     }
   }
@@ -223,5 +368,7 @@ async function handleDispatch(request: Request) {
     ok: true,
     sentEvents,
     sentTasks,
+    sentDailySummaries,
+    sentDailyInspirations,
   });
 }

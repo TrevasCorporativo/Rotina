@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { getHolidayForDate } from '@/lib/holidays';
+import { getDailyMotivation, getDailyVerse } from '@/lib/daily-messages';
 import {
   getExistingPushSubscription,
   isPushSupported,
@@ -209,6 +210,7 @@ export function RotinaApp({
           priority: payload.priority,
           notify_enabled: true,
           reminder_preset: payload.reminder_preset,
+          reminder_presets: payload.reminder_presets,
         })
         .select('*')
         .single();
@@ -403,6 +405,8 @@ export function RotinaApp({
   }, [events, selectedDate]);
 
   const selectedHoliday = getHolidayForDate(selectedDate);
+  const dailyMotivation = useMemo(() => getDailyMotivation(todayStr), [todayStr]);
+  const dailyVerse = useMemo(() => getDailyVerse(todayStr), [todayStr]);
 
   const initials = profile.display_name
     .split(' ')
@@ -806,6 +810,32 @@ export function RotinaApp({
                         <b>{d.num}</b>
                       </div>
                     ))}
+                  </div>
+                </div>
+
+                <div className="panel">
+                  <div className="panel-head">
+                    <h2>Inspiração &amp; Versículo</h2>
+                    <span className="muted" style={{ fontSize: 10 }}>
+                      Para meditar hoje
+                    </span>
+                  </div>
+                  <p style={{ margin: '0 0 12px', fontSize: 12, lineHeight: 1.6 }}>
+                    ✨ {dailyMotivation}
+                  </p>
+                  <div
+                    style={{
+                      padding: '10px 12px',
+                      borderRadius: 12,
+                      background: 'var(--accent-soft)',
+                      fontSize: 12,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    <strong style={{ display: 'block', color: 'var(--accent)', marginBottom: 4 }}>
+                      📖 {dailyVerse.reference}
+                    </strong>
+                    <span>&ldquo;{dailyVerse.text}&rdquo;</span>
                   </div>
                 </div>
               </div>

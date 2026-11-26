@@ -12,6 +12,7 @@ export interface NewTaskPayload {
   priority: Priority;
   notify_enabled: boolean;
   reminder_preset: string;
+  reminder_presets: string[];
 }
 
 export interface NewEventPayload {
@@ -48,6 +49,14 @@ const REMINDER_OPTIONS = [
   { value: 'relative:1440', label: '1 dia antes (mesmo horário)' },
 ];
 
+const TASK_REMINDER_OPTIONS = [
+  { value: 'same_day_08', label: 'No dia pela manhã (08h)' },
+  { value: 'relative:0', label: 'No horário da tarefa' },
+  { value: 'relative:60', label: '1 hora antes' },
+  { value: 'day_before_08', label: '1 dia antes pela manhã (08h)' },
+  { value: 'day_before_20', label: '1 dia antes à noite (20h)' },
+];
+
 function getInitialReminder(editingEvent?: CalendarEvent | null, mode?: 'task' | 'event') {
   if (editingEvent) {
     const preset = editingEvent.reminder_preset || 'relative';
@@ -78,7 +87,20 @@ export function EntryModal({
   const [reminderChoice, setReminderChoice] = useState(() =>
     getInitialReminder(editingEvent, mode)
   );
+  const [taskReminders, setTaskReminders] = useState<string[]>([
+    'same_day_08',
+    'relative:0',
+  ]);
   const [saving, setSaving] = useState(false);
+
+  function toggleTaskReminder(value: string) {
+    setTaskReminders((prev) => {
+      if (prev.includes(value)) {
+        return prev.length > 1 ? prev.filter((item) => item !== value) : prev;
+      }
+      return [...prev, value];
+    });
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -99,7 +121,8 @@ export function EntryModal({
           due_time: time || null,
           priority,
           notify_enabled: true,
-          reminder_preset: preset,
+          reminder_preset: taskReminders[0] || 'same_day_08',
+          reminder_presets: taskReminders,
         });
       } else {
         await onSave({
@@ -214,17 +237,31 @@ export function EntryModal({
               </div>
 
               <div className="field">
-                <label htmlFor="entryTaskReminder">Notificação automática</label>
-                <select
-                  id="entryTaskReminder"
-                  value={reminderChoice}
-                  onChange={(e) => setReminderChoice(e.target.value)}
-                >
-                  <option value="relative:0">No horário da tarefa</option>
-                  <option value="same_day_08:0">No dia pela manhã (08h)</option>
-                  <option value="day_before_08:0">1 dia antes pela manhã (08h)</option>
-                  <option value="day_before_20:0">1 dia antes à noite (20h)</option>
-                </select>
+                <label>Notificações automáticas (escolha uma ou mais)</label>
+                <div style={{ display: 'grid', gap: 8, paddingTop: 2 }}>
+                  {TASK_REMINDER_OPTIONS.map((opt) => (
+                    <label
+                      key={opt.value}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8,
+                        fontSize: 12,
+                        fontWeight: 500,
+                        color: 'var(--text)',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="check"
+                        checked={taskReminders.includes(opt.value)}
+                        onChange={() => toggleTaskReminder(opt.value)}
+                      />
+                      {opt.label}
+                    </label>
+                  ))}
+                </div>
               </div>
             </>
           ) : (

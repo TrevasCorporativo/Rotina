@@ -25,6 +25,8 @@ export interface Task {
   done: boolean;
   notify_enabled: boolean;
   reminder_preset?: string;
+  reminder_presets?: string[];
+  notified_presets?: string[];
   notified_at: string | null;
   created_at: string;
   updated_at: string;
