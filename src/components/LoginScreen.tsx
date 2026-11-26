@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { BrandLogo } from './BrandLogo';
 
 export function LoginScreen() {
   const router = useRouter();
@@ -41,7 +42,7 @@ export function LoginScreen() {
     <div className="access-screen">
       <section className="access-showcase">
         <div className="access-brand">
-          <div className="logo">c.</div> Modo Sobrevivência
+          <BrandLogo variant="light" size={38} /> Modo Sobrevivência
         </div>
         <div className="access-message">
           <div className="access-kicker">DOIS ADULTOS. MIL BOLETOS. UMA AGENDA.</div>

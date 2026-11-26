@@ -10,6 +10,7 @@ import {
 } from '@/lib/push';
 import type { CalendarEvent, Profile, Task } from '@/lib/types';
 import { ChangePasswordModal } from './ChangePasswordModal';
+import { BrandLogo } from './BrandLogo';
 import {
   EntryModal,
   type NewEventPayload,
@@ -366,7 +367,7 @@ export function RotinaApp({
 
       <aside className="sidebar">
         <div className="brand">
-          <div className="logo">c.</div> Modo Sobrevivência
+          <BrandLogo size={36} /> Modo Sobrevivência
         </div>
         <div>
           <div className="nav-label">ESPAÇO PESSOAL</div>
