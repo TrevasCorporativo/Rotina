@@ -715,7 +715,10 @@ export function RotinaApp({
                   O painel oficial de quem está tentando ter a vida nos eixos.
                 </p>
               </div>
-              <button className="btn" onClick={() => setModalMode('task')}>
+              <button
+                className="btn dashboard-head-btn"
+                onClick={() => setModalMode('task')}
+              >
                 ＋ Nova tarefa
               </button>
             </div>
@@ -952,7 +955,10 @@ export function RotinaApp({
                   Tudo o que você precisa fazer, em um só lugar.
                 </p>
               </div>
-              <button className="btn" onClick={() => setModalMode('task')}>
+              <button
+                className="btn dashboard-head-btn"
+                onClick={() => setModalMode('task')}
+              >
                 ＋ Nova tarefa
               </button>
             </div>

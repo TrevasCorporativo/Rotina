@@ -452,81 +452,101 @@ export function FinanceView({
   }
 
   function handleExportPDF() {
-    const win = window.open('', '_blank', 'width=900,height=700');
-    if (!win) {
-      onToast('Permita pop-ups para exportar o PDF.');
-      return;
-    }
-
-    const monthTitle = formatMonthLabel(selectedMonth);
-    const incomeRows = monthIncomes
-      .map(
-        (i) =>
-          `<tr><td>${i.title}</td><td>${i.category}</td><td>${
-            i.receive_day ? 'Dia ' + i.receive_day : '—'
-          }</td><td style="text-align:right">${formatBRL(Number(i.amount))}</td></tr>`
-      )
-      .join('');
-
-    const expenseRows = monthExpenses
-      .map(
-        (e) =>
-          `<tr><td>${e.title}${
-            e.installment_index && e.installment_total
-              ? ` (${e.installment_index}/${e.installment_total})`
-              : ''
-          }</td><td>${e.category}</td><td>${
-            e.due_day ? 'Dia ' + e.due_day : '—'
-          }</td><td>${e.paid ? 'Pago' : 'Em aberto'}</td><td style="text-align:right">${formatBRL(
-            Number(e.amount)
-          )}</td></tr>`
-      )
-      .join('');
-
-    win.document.write(`<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8" />
-<title>Panorama Financeiro — ${monthTitle}</title>
-<style>
-  body { font-family: Inter, system-ui, sans-serif; color: #20242c; padding: 32px; }
-  h1 { margin: 0 0 4px; color: #268675; text-transform: capitalize; }
-  .sub { color: #6b7280; font-size: 13px; margin-bottom: 24px; }
-  .cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px; }
-  .card { border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px; }
-  .card small { color: #6b7280; font-size: 11px; display: block; }
-  .card strong { font-size: 18px; margin-top: 4px; display: block; }
-  h2 { font-size: 15px; margin: 22px 0 8px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px; }
-  table { width: 100%; border-collapse: collapse; font-size: 12px; }
-  th, td { padding: 8px 6px; border-bottom: 1px solid #f0f1f4; text-align: left; }
-  th { color: #6b7280; font-weight: 600; }
-</style>
-</head>
-<body>
-  <h1>Panorama Financeiro · ${monthTitle}</h1>
-  <div class="sub">Modo Sobrevivência · Gerado em ${new Date().toLocaleString('pt-BR')}</div>
-  <div class="cards">
-    <div class="card"><small>Receitas</small><strong>${formatBRL(totalIncome)}</strong></div>
-    <div class="card"><small>Gastos</small><strong>${formatBRL(totalExpenses)}</strong></div>
-    <div class="card"><small>Saldo previsto</small><strong>${formatBRL(balance)}</strong></div>
-    <div class="card"><small>Já pago</small><strong>${paidPct}% (${formatBRL(paidTotal)})</strong></div>
-  </div>
-  <h2>Receitas</h2>
-  <table><thead><tr><th>Descrição</th><th>Categoria</th><th>Dia</th><th style="text-align:right">Valor</th></tr></thead><tbody>${
-    incomeRows || '<tr><td colspan="4">Nenhuma receita lançada.</td></tr>'
-  }</tbody></table>
-  <h2>Gastos</h2>
-  <table><thead><tr><th>Descrição</th><th>Categoria</th><th>Venc.</th><th>Status</th><th style="text-align:right">Valor</th></tr></thead><tbody>${
-    expenseRows || '<tr><td colspan="5">Nenhum gasto lançado.</td></tr>'
-  }</tbody></table>
-  <script>window.onload = () => { window.print(); };</script>
-</body>
-</html>`);
-    win.document.close();
+    window.print();
   }
 
   return (
     <section>
+      {/* Print-only PDF layout (avoids popup trap in mobile PWAs) */}
+      <div className="print-sheet" aria-hidden="true">
+        <h1>Panorama Financeiro · {formatMonthLabel(selectedMonth)}</h1>
+        <p className="print-sub">
+          Modo Sobrevivência · Gerado em {new Date().toLocaleString('pt-BR')}
+        </p>
+        <div className="print-cards">
+          <div>
+            <small>Receitas</small>
+            <strong>{formatBRL(totalIncome)}</strong>
+          </div>
+          <div>
+            <small>Gastos</small>
+            <strong>{formatBRL(totalExpenses)}</strong>
+          </div>
+          <div>
+            <small>Saldo previsto</small>
+            <strong>{formatBRL(balance)}</strong>
+          </div>
+          <div>
+            <small>Já pago</small>
+            <strong>
+              {paidPct}% ({formatBRL(paidTotal)})
+            </strong>
+          </div>
+        </div>
+
+        <h2>Receitas</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Dia</th>
+              <th style={{ textAlign: 'right' }}>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {monthIncomes.length ? (
+              monthIncomes.map((i) => (
+                <tr key={i.id}>
+                  <td>{i.title}</td>
+                  <td>{i.category}</td>
+                  <td>{i.receive_day ? `Dia ${i.receive_day}` : '—'}</td>
+                  <td style={{ textAlign: 'right' }}>{formatBRL(Number(i.amount))}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={4}>Nenhuma receita lançada.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+
+        <h2>Gastos</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Descrição</th>
+              <th>Categoria</th>
+              <th>Venc.</th>
+              <th>Status</th>
+              <th style={{ textAlign: 'right' }}>Valor</th>
+            </tr>
+          </thead>
+          <tbody>
+            {monthExpenses.length ? (
+              monthExpenses.map((e) => (
+                <tr key={e.id}>
+                  <td>
+                    {e.title}
+                    {e.installment_index && e.installment_total
+                      ? ` (${e.installment_index}/${e.installment_total})`
+                      : ''}
+                  </td>
+                  <td>{e.category}</td>
+                  <td>{e.due_day ? `Dia ${e.due_day}` : '—'}</td>
+                  <td>{e.paid ? 'Pago' : 'Em aberto'}</td>
+                  <td style={{ textAlign: 'right' }}>{formatBRL(Number(e.amount))}</td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={5}>Nenhum gasto lançado.</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
       <div className="page-head">
         <div>
           <div className="eyebrow">CONTROLE SIMPLES DO MÊS</div>

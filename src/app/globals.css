@@ -1767,6 +1767,9 @@ button {
     width: 100%;
     justify-content: center;
   }
+  .dashboard-head-btn {
+    display: none !important;
+  }
   .main h1 {
     font-size: 23px;
   }
@@ -1926,5 +1929,94 @@ button {
   }
   .mobile-bottom-nav button.active {
     color: var(--accent);
+  }
+}
+
+/* Print-only PDF stylesheet (never opens a new popup window) */
+.print-sheet {
+  display: none;
+}
+
+@media print {
+  body {
+    background: #fff !important;
+    color: #20242c !important;
+  }
+  .app {
+    padding-left: 0 !important;
+    display: block !important;
+  }
+  .sidebar,
+  .topbar,
+  .mobile-bottom-nav,
+  .push-alert-bar,
+  .page-head,
+  .stats,
+  .content-grid,
+  .modal-backdrop,
+  .toast {
+    display: none !important;
+  }
+  .main {
+    padding: 0 !important;
+  }
+  .print-sheet {
+    display: block !important;
+    padding: 20px;
+    font-family: Inter, system-ui, sans-serif;
+    color: #20242c;
+  }
+  .print-sheet h1 {
+    margin: 0 0 4px;
+    font-size: 22px;
+    color: #268675;
+    text-transform: capitalize;
+  }
+  .print-sub {
+    color: #6b7280;
+    font-size: 12px;
+    margin: 0 0 18px;
+  }
+  .print-cards {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 20px;
+  }
+  .print-cards > div {
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 10px;
+  }
+  .print-cards small {
+    display: block;
+    font-size: 11px;
+    color: #6b7280;
+  }
+  .print-cards strong {
+    display: block;
+    font-size: 15px;
+    margin-top: 4px;
+  }
+  .print-sheet h2 {
+    font-size: 14px;
+    margin: 18px 0 8px;
+    border-bottom: 1px solid #e5e7eb;
+    padding-bottom: 5px;
+  }
+  .print-sheet table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12px;
+  }
+  .print-sheet th,
+  .print-sheet td {
+    padding: 7px 5px;
+    border-bottom: 1px solid #f0f1f4;
+    text-align: left;
+  }
+  .print-sheet th {
+    color: #6b7280;
+    font-weight: 600;
   }
 }
