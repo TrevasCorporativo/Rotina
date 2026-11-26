@@ -1,15 +1,18 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { createClient } from '@/lib/supabase/client';
 import type {
   CalendarEvent,
   FinanceExpense,
   FinanceIncome,
   FinanceMonth,
+  Priority,
   Task,
 } from '@/lib/types';
 
 interface TipsViewProps {
+  userId: string;
   displayName: string;
   todayStr: string;
   nowTimeStr: string;
@@ -18,6 +21,10 @@ interface TipsViewProps {
   financeMonths: FinanceMonth[];
   financeExpenses: FinanceExpense[];
   financeIncomes: FinanceIncome[];
+  onTaskCreated: (task: Task) => void;
+  onEventCreated: (ev: CalendarEvent) => void;
+  onExpensesCreated: (exps: FinanceExpense[]) => void;
+  onIncomesCreated: (incs: FinanceIncome[]) => void;
   onNavigate: (view: 'tasks' | 'calendar' | 'finance') => void;
 }
 
@@ -50,7 +57,102 @@ function addDaysStr(dateStr: string, days: number): string {
   return `${y}-${m}-${day}`;
 }
 
+function addMonthsToKey(monthKey: string, offset: number): string {
+  const [y, m] = monthKey.split('-').map(Number);
+  const d = new Date(y, m - 1 + offset, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+function normalizeText(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+}
+
+function extractAmount(raw: string): number | null {
+  const m = raw.match(/(?:r\$\s*)?(\d+(?:[.,]\d{1,2})?)/i);
+  if (!m) return null;
+  const val = Number(m[1].replace(',', '.'));
+  return Number.isFinite(val) && val > 0 ? val : null;
+}
+
+function extractRecurrenceMonths(norm: string): number {
+  if (/\b(fixo|fixa|todo mes|todos os meses|mensal)\b/.test(norm)) return 12;
+  const m = norm.match(/(?:por|durante|em)\s*(\d{1,2})\s*(?:mes|meses|x)\b/);
+  if (m) return Math.min(60, Math.max(2, Number(m[1])));
+  const xMatch = norm.match(/\b(\d{1,2})x\b/);
+  if (xMatch) return Math.min(60, Math.max(2, Number(xMatch[1])));
+  return 1;
+}
+
+function extractDate(norm: string, todayStr: string): string {
+  if (norm.includes('amanha')) return addDaysStr(todayStr, 1);
+  if (norm.includes('hoje')) return todayStr;
+  const dm = norm.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
+  if (dm) {
+    const day = String(Number(dm[1])).padStart(2, '0');
+    const month = String(Number(dm[2])).padStart(2, '0');
+    const year = dm[3]
+      ? dm[3].length === 2
+        ? `20${dm[3]}`
+        : dm[3]
+      : todayStr.slice(0, 4);
+    return `${year}-${month}-${day}`;
+  }
+  return todayStr;
+}
+
+function extractTime(norm: string): string | null {
+  const hm = norm.match(/\b(\d{1,2})[:h](\d{2})?\b/);
+  if (!hm) return null;
+  const h = Number(hm[1]);
+  const m = Number(hm[2] ?? 0);
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+}
+
+function detectExpenseCategory(norm: string): string {
+  if (/(aluguel|condominio|casa|iptu|moradia)/.test(norm)) return 'Moradia';
+  if (/(internet|luz|agua|energia|telefone|celular|conta)/.test(norm)) return 'Contas';
+  if (/(mercado|almoco|jantar|lanche|ifood|comida|cafe|padaria)/.test(norm))
+    return 'Alimentação';
+  if (/(uber|99|gasolina|combustivel|onibus|metro|estacionamento|carro)/.test(norm))
+    return 'Transporte';
+  if (/(medico|remedio|farmacia|dentista|academia|consulta|saude)/.test(norm))
+    return 'Saúde';
+  if (/(netflix|spotify|youtube|amazon|assinatura|streaming)/.test(norm))
+    return 'Assinaturas';
+  if (/(cinema|viagem|passeio|bar|festa|lazer|jogo)/.test(norm)) return 'Lazer';
+  return 'Outros';
+}
+
+function detectIncomeCategory(norm: string): string {
+  if (/(salario|pagamento|holerite)/.test(norm)) return 'Salário';
+  if (/(freela|freelance|projeto|servico)/.test(norm)) return 'Freelance';
+  if (/(extra|bonus|comissao|venda|rendimento)/.test(norm)) return 'Renda Extra';
+  return 'Outros';
+}
+
+function cleanTitle(raw: string, fallback: string): string {
+  const cleaned = raw
+    .replace(
+      /\b(lanca|lancar|adiciona|adicionar|cria|criar|coloca|colocar|registra|registrar|marca|marcar|agendar|agenda|novo|nova|um|uma|para|pra|de|do|da|no|na|em|com|por|durante|hoje|amanha|fixo|fixa|mensal|gasto|despesa|conta|receita|renda|tarefa|compromisso|evento|reais|r\$|as|às)\b/gi,
+      ' '
+    )
+    .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, ' ')
+    .replace(/\b\d{1,2}[:h]\d{0,2}\b/gi, ' ')
+    .replace(/\b\d+(?:[.,]\d{1,2})?\b/g, ' ')
+    .replace(/\b\d{1,2}\s*(?:mes|meses|x)\b/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+  if (!cleaned) return fallback;
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 export function TipsView({
+  userId,
   displayName,
   todayStr,
   nowTimeStr,
@@ -59,6 +161,10 @@ export function TipsView({
   financeMonths,
   financeExpenses,
   financeIncomes,
+  onTaskCreated,
+  onEventCreated,
+  onExpensesCreated,
+  onIncomesCreated,
   onNavigate,
 }: TipsViewProps) {
   const firstName = displayName.split(' ')[0] || 'Você';
@@ -295,6 +401,8 @@ export function TipsView({
         totalIncome,
         totalExp,
         unpaidExp,
+        monthExp,
+        monthInc,
       },
     };
   }, [
@@ -311,16 +419,247 @@ export function TipsView({
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       role: 'assistant',
-      text: `Oi, ${firstName}! Dei uma olhada na sua rotina de hoje: você tem ${analysis.metrics.todayEvents.length} compromisso(s), ${analysis.metrics.openTasks.length} tarefa(s) aberta(s) e saldo de ${formatBRL(analysis.metrics.balance)} no mês.\n\nPode conversar comigo normalmente — me pergunte o que priorizar, se precisa descansar, ou como estão suas finanças.`,
+      text: `Oi, ${firstName}! Posso conversar sobre sua rotina, gerar relatórios e também executar ações para você.\n\nExperimente pedir:\n• "Lança um gasto de 150 de internet fixo"\n• "Recebi 500 de freela"\n• "Cria uma tarefa pagar boleto amanhã às 10h"\n• "Marca na agenda dentista amanhã às 15h"\n• "Me dá um relatório financeiro"`,
     },
   ]);
 
-  function buildConversationalReply(promptText: string): string {
-    const q = promptText
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '');
+  async function processCopilotInput(promptText: string): Promise<string> {
+    const q = normalizeText(promptText);
+    const supabase = createClient();
 
+    // 1. Reports
+    if (/(relatorio|extrato|panorama)/.test(q)) {
+      const {
+        totalIncome,
+        totalExp,
+        balance,
+        monthExp,
+        unpaidExp,
+        openTasks,
+        overdueTasks,
+        doneCount,
+        todayEvents,
+        next7DaysCount,
+      } = analysis.metrics;
+
+      if (/(financ|gast|receit|dinheiro|conta)/.test(q)) {
+        const byCat = new Map<string, number>();
+        for (const e of monthExp) {
+          byCat.set(e.category, (byCat.get(e.category) ?? 0) + Number(e.amount));
+        }
+        const topCats = Array.from(byCat.entries())
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 3)
+          .map(([c, v]) => `${c}: ${formatBRL(v)}`)
+          .join(' | ');
+
+        return `📊 Relatório Financeiro (${currentMonthKey}):\n• Receitas: ${formatBRL(
+          totalIncome
+        )}\n• Gastos: ${formatBRL(totalExp)}\n• Saldo previsto: ${formatBRL(
+          balance
+        )}\n• Contas em aberto: ${unpaidExp.length}\n${
+          topCats ? `• Maiores categorias: ${topCats}` : ''
+        }`;
+      }
+
+      if (/(tarefa|afazer)/.test(q)) {
+        return `☑ Relatório de Tarefas:\n• Em aberto: ${openTasks.length}\n• Em atraso: ${overdueTasks.length}\n• Concluídas: ${doneCount}${
+          overdueTasks.length > 0
+            ? `\n• Atrasadas agora: ${overdueTasks
+                .slice(0, 3)
+                .map((t) => t.title)
+                .join(', ')}`
+            : ''
+        }`;
+      }
+
+      if (/(agenda|compromisso|evento)/.test(q)) {
+        return `📅 Relatório da Agenda:\n• Compromissos hoje: ${
+          todayEvents.length
+        }\n• Próximos 7 dias: ${next7DaysCount}${
+          todayEvents.length > 0
+            ? `\n• Hoje: ${todayEvents
+                .map((e) => `${e.event_time.slice(0, 5)} ${e.title}`)
+                .join(', ')}`
+            : ''
+        }`;
+      }
+
+      return `📋 Relatório Geral, ${firstName}:\n• Equilíbrio: ${analysis.score}/100\n• Financeiro: ${formatBRL(
+        totalIncome
+      )} receita · ${formatBRL(totalExp)} gastos · ${formatBRL(
+        balance
+      )} saldo\n• Tarefas: ${openTasks.length} abertas (${overdueTasks.length} atrasadas)\n• Agenda: ${todayEvents.length} hoje · ${next7DaysCount} nos próximos 7 dias`;
+    }
+
+    // 2. Action: Create Expense
+    const isCreateAction =
+      /(lanca|adiciona|cria|coloca|registra|gastei|paguei|comprei|recebi|ganhei|marca|agend|novo|nova)/.test(
+        q
+      );
+
+    if (
+      isCreateAction &&
+      /(gasto|despesa|conta|gastei|paguei|comprei)/.test(q)
+    ) {
+      const amount = extractAmount(promptText);
+      if (!amount) {
+        return 'Para lançar o gasto, me diga o valor também! Exemplo: "Lança um gasto de 120 de internet".';
+      }
+      const totalMonths = extractRecurrenceMonths(q);
+      const category = detectExpenseCategory(q);
+      const title = cleanTitle(promptText, category);
+      const groupId = totalMonths > 1 ? crypto.randomUUID() : null;
+
+      const rows = Array.from({ length: totalMonths }, (_, i) => ({
+        user_id: userId,
+        month_key: addMonthsToKey(currentMonthKey, i),
+        title,
+        amount,
+        category,
+        due_day: null,
+        paid: false,
+        recurrence_group_id: groupId,
+        installment_index: totalMonths > 1 ? i + 1 : null,
+        installment_total: totalMonths > 1 ? totalMonths : null,
+      }));
+
+      const { data, error } = await supabase
+        .from('finance_expenses')
+        .insert(rows)
+        .select('*');
+
+      if (error || !data) {
+        return 'Ops, não consegui salvar esse gasto no banco agora. Tente novamente!';
+      }
+
+      onExpensesCreated(data as FinanceExpense[]);
+      return `✅ Gasto lançado!\n• "${title}" (${category}): ${formatBRL(amount)}${
+        totalMonths > 1 ? ` · repetido por ${totalMonths} meses` : ' · somente este mês'
+      }.`;
+    }
+
+    // 3. Action: Create Income
+    if (
+      isCreateAction &&
+      /(receita|renda|salario|recebi|ganhei|entrada)/.test(q)
+    ) {
+      const amount = extractAmount(promptText);
+      if (!amount) {
+        return 'Para lançar a receita, informe o valor! Exemplo: "Recebi 500 de freela" ou "Lança salário de 4500 fixo".';
+      }
+      const totalMonths = extractRecurrenceMonths(q);
+      const category = detectIncomeCategory(q);
+      const title = cleanTitle(promptText, category);
+      const groupId = totalMonths > 1 ? crypto.randomUUID() : null;
+
+      const rows = Array.from({ length: totalMonths }, (_, i) => ({
+        user_id: userId,
+        month_key: addMonthsToKey(currentMonthKey, i),
+        title,
+        amount,
+        category,
+        receive_day: null,
+        recurrence_group_id: groupId,
+        installment_index: totalMonths > 1 ? i + 1 : null,
+        installment_total: totalMonths > 1 ? totalMonths : null,
+      }));
+
+      const { data, error } = await supabase
+        .from('finance_incomes')
+        .insert(rows)
+        .select('*');
+
+      if (error || !data) {
+        return 'Ops, não consegui salvar essa receita agora. Tente novamente!';
+      }
+
+      onIncomesCreated(data as FinanceIncome[]);
+      return `✅ Receita lançada!\n• "${title}" (${category}): +${formatBRL(amount)}${
+        totalMonths > 1 ? ` · repetida por ${totalMonths} meses` : ' · somente este mês'
+      }.`;
+    }
+
+    // 4. Action: Create Calendar Event
+    if (
+      isCreateAction &&
+      /(agenda|compromisso|evento|reuniao|consulta|medico|dentista|marcar|agendar)/.test(
+        q
+      )
+    ) {
+      const eventDate = extractDate(q, todayStr);
+      const eventTime = extractTime(q) ?? '09:00';
+      const title = cleanTitle(promptText, 'Compromisso');
+
+      const { data, error } = await supabase
+        .from('events')
+        .insert({
+          user_id: userId,
+          title,
+          event_date: eventDate,
+          event_time: eventTime,
+          location: null,
+          notes: null,
+          notify_enabled: true,
+          notify_minutes_before: 15,
+          reminder_preset: 'relative',
+        })
+        .select('*')
+        .single();
+
+      if (error || !data) {
+        return 'Não consegui criar esse compromisso na agenda. Tente novamente!';
+      }
+
+      onEventCreated(data as CalendarEvent);
+      return `📅 Compromisso agendado!\n• "${title}" em ${eventDate
+        .split('-')
+        .reverse()
+        .join('/')} às ${eventTime} (com notificação automática).`;
+    }
+
+    // 5. Action: Create Task
+    if (
+      isCreateAction &&
+      /(tarefa|lembrete|afazer|lembrar)/.test(q)
+    ) {
+      const dueDate = extractDate(q, todayStr);
+      const dueTime = extractTime(q) ?? '09:00';
+      const priority: Priority = /(alta|urgente)/.test(q)
+        ? 'high'
+        : /baixa/.test(q)
+        ? 'low'
+        : 'medium';
+      const title = cleanTitle(promptText, 'Nova tarefa');
+
+      const { data, error } = await supabase
+        .from('tasks')
+        .insert({
+          user_id: userId,
+          title,
+          category: 'Pessoal',
+          due_date: dueDate,
+          due_time: dueTime,
+          priority,
+          notify_enabled: true,
+          reminder_preset: 'same_day_08',
+          reminder_presets: ['same_day_08', 'relative:0'],
+        })
+        .select('*')
+        .single();
+
+      if (error || !data) {
+        return 'Não consegui criar essa tarefa agora. Tente novamente!';
+      }
+
+      onTaskCreated(data as Task);
+      return `☑ Tarefa criada!\n• "${title}" para ${dueDate
+        .split('-')
+        .reverse()
+        .join('/')} às ${dueTime} (notificação ativada).`;
+    }
+
+    // 6. Conversational Q&A
     const {
       todayEvents,
       tomorrowEvents,
@@ -334,34 +673,23 @@ export function TipsView({
     } = analysis.metrics;
 
     if (/^(oi|ola|e ai|bom dia|boa tarde|boa noite|tudo bem)/.test(q)) {
-      return `Oi, ${firstName}! Tudo ótimo por aqui. Seu índice de equilíbrio hoje está em ${analysis.score}/100. Quer que eu te ajude a organizar o que fazer hoje, revisar a agenda ou olhar o financeiro?`;
+      return `Oi, ${firstName}! Tudo ótimo por aqui. Seu índice de equilíbrio hoje está em ${analysis.score}/100. Posso lançar gastos, receitas, tarefas, compromissos ou gerar um relatório — o que você precisa agora?`;
     }
 
     if (q.includes('obrigad') || q.includes('valeu') || q.includes('show')) {
-      return `Por nada, ${firstName}! Sempre que precisar colocar a cabeça no lugar ou revisar o dia, é só me chamar aqui.`;
+      return `Por nada, ${firstName}! Sempre que precisar, é só me chamar aqui.`;
     }
 
     if (
-      q.includes('descans') ||
-      q.includes('cansad') ||
-      q.includes('estress') ||
-      q.includes('pausa') ||
-      q.includes('dormir') ||
-      q.includes('sobrecar')
+      /(descans|cansad|estress|pausa|dormir|sobrecar)/.test(q)
     ) {
       if (todayEvents.length >= 3 || overdueTasks.length >= 2) {
-        return `Olhando para os seus dados, faz todo sentido você sentir o peso: são ${todayEvents.length} compromisso(s) hoje e ${overdueTasks.length} tarefa(s) atrasada(s). Não tente abraçar tudo hoje. Escolha só 1 coisa importante, resolva, e depois se dê pelo menos 30 a 45 minutos de descanso real sem culpa.`;
+        return `Olhando para os seus dados, faz todo sentido você sentir o peso: são ${todayEvents.length} compromisso(s) hoje e ${overdueTasks.length} tarefa(s) atrasada(s). Escolha só 1 coisa importante, resolva, e depois se dê pelo menos 30 a 45 minutos de descanso real sem culpa.`;
       }
       return `Sua carga de hoje está bem leve (${todayEvents.length} compromisso(s) e ${openTasks.length} tarefa(s) aberta(s)). Pode descansar tranquilo(a) sim!`;
     }
 
-    if (
-      q.includes('amanha') ||
-      q.includes('agenda') ||
-      q.includes('compromisso') ||
-      q.includes('semana') ||
-      q.includes('horario')
-    ) {
+    if (/(amanha|agenda|compromisso|semana|horario)/.test(q)) {
       const todayTxt = todayEvents.length
         ? todayEvents
             .map((e) => `${e.event_time.slice(0, 5)} ${e.title}`)
@@ -372,49 +700,27 @@ export function TipsView({
             .map((e) => `${e.event_time.slice(0, 5)} ${e.title}`)
             .join(', ')
         : 'dia livre';
-      return `Na sua agenda:\n• Hoje: ${todayTxt}.\n• Amanhã: ${tomorrowTxt}.\n• Próximos 7 dias: ${next7DaysCount} compromisso(s) no total.${
-        todayEvents.length >= 4 || tomorrowEvents.length >= 4
-          ? '\n\nDica: tente deixar um respiro entre eles para não se cansar.'
-          : ''
-      }`;
+      return `Na sua agenda:\n• Hoje: ${todayTxt}.\n• Amanhã: ${tomorrowTxt}.\n• Próximos 7 dias: ${next7DaysCount} compromisso(s) no total.`;
     }
 
-    if (
-      q.includes('prioriz') ||
-      q.includes('tarefa') ||
-      q.includes('fazer') ||
-      q.includes('hoje') ||
-      q.includes('atras')
-    ) {
+    if (/(prioriz|tarefa|fazer|hoje|atras)/.test(q)) {
       if (overdueTasks.length > 0) {
-        return `Comece tirando da frente o que já passou do prazo: "${overdueTasks[0].title}". Depois, se sobrar energia, escolha mais 1 tarefa aberta (${openTasks.length} no total) e deixe o resto para amanhã sem peso.`;
+        return `Comece tirando da frente o que já passou do prazo: "${overdueTasks[0].title}". Depois escolha mais 1 tarefa aberta (${openTasks.length} no total) e deixe o resto para amanhã sem peso.`;
       }
       if (openTasks.length > 0) {
-        return `Você não tem atrasos! Das ${openTasks.length} tarefa(s) em aberto, escolha "${openTasks[0].title}" como foco principal agora. Fazendo uma por vez você rende muito mais.`;
+        return `Você não tem atrasos! Das ${openTasks.length} tarefa(s) em aberto, escolha "${openTasks[0].title}" como foco principal agora.`;
       }
-      return `Suas tarefas estão todas em dia! Se quiser, aproveite para descansar ou adiantar algo leve.`;
+      return `Suas tarefas estão todas em dia! Aproveite para descansar ou adiantar algo leve.`;
     }
 
-    if (
-      q.includes('gast') ||
-      q.includes('financ') ||
-      q.includes('dinheiro') ||
-      q.includes('sald') ||
-      q.includes('receita') ||
-      q.includes('conta') ||
-      q.includes('pagar')
-    ) {
+    if (/(gast|financ|dinheiro|sald|receita|conta|pagar)/.test(q)) {
       if (totalIncome === 0 && totalExp === 0) {
-        return `Ainda não tem receitas nem gastos lançados neste mês. Assim que você cadastrar no Financeiro, eu analiso seu saldo e te aviso se algo estiver apertado.`;
+        return `Ainda não tem receitas nem gastos lançados neste mês. Você pode dizer aqui mesmo: "Lança salário de 4000 fixo" ou "Lança gasto de 150 de internet".`;
       }
-      return `No Financeiro deste mês:\n• Receitas: ${formatBRL(totalIncome)}\n• Gastos: ${formatBRL(totalExp)}\n• Saldo previsto: ${formatBRL(balance)}\n• Contas em aberto: ${unpaidExp.length}\n\n${
-        balance < 0
-          ? 'Atenção: o saldo está negativo. Vale segurar gastos extras nos próximos dias.'
-          : 'Você está no positivo! Lembre-se de guardar uma parte se puder.'
-      }`;
+      return `No Financeiro deste mês:\n• Receitas: ${formatBRL(totalIncome)}\n• Gastos: ${formatBRL(totalExp)}\n• Saldo previsto: ${formatBRL(balance)}\n• Contas em aberto: ${unpaidExp.length}`;
     }
 
-    return `Entendi, ${firstName}! Olhando seu momento atual (equilíbrio ${analysis.score}/100): você tem ${todayEvents.length} compromisso(s) hoje, ${overdueTasks.length} tarefa(s) atrasada(s) e saldo de ${formatBRL(balance)}.\n\nMinha principal sugestão agora: ${analysis.insights[0]?.title.toLowerCase()}. Quer que eu detalhe sua agenda, suas tarefas ou seu financeiro?`;
+    return `Entendi, ${firstName}! Seu equilíbrio hoje está em ${analysis.score}/100 (${todayEvents.length} compromisso(s) hoje, ${overdueTasks.length} tarefa(s) atrasada(s) e saldo de ${formatBRL(balance)}).\n\nSe quiser, pode pedir algo direto como: "Lança gasto de 80 no mercado", "Cria tarefa ligar pro médico amanhã" ou "Relatório financeiro".`;
   }
 
   async function sendMessage(customPrompt?: string) {
@@ -425,8 +731,10 @@ export function TipsView({
     setMessages((prev) => [...prev, { role: 'user', text }]);
     setThinking(true);
 
-    await new Promise((r) => setTimeout(r, 420));
-    const reply = buildConversationalReply(text);
+    const [reply] = await Promise.all([
+      processCopilotInput(text),
+      new Promise((r) => setTimeout(r, 320)),
+    ]);
 
     setMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
     setThinking(false);
@@ -439,7 +747,8 @@ export function TipsView({
           <div className="eyebrow">COPILOTO DE ROTINA</div>
           <h1>Dicas &amp; Bem-estar</h1>
           <p className="subtitle">
-            Converse com seu assistente ou veja o diagnóstico organizado da sua rotina.
+            Converse, peça relatórios ou mande lançar gastos, receitas, tarefas e
+            agendas.
           </p>
         </div>
       </div>
@@ -485,10 +794,10 @@ export function TipsView({
         <div className="panel">
           <div className="filter-row">
             {[
+              'Me dá um relatório geral',
               'O que devo priorizar hoje?',
               'Preciso descansar?',
-              'Como está minha agenda?',
-              'Como está meu financeiro?',
+              'Relatório financeiro',
             ].map((prompt) => (
               <button
                 key={prompt}
@@ -511,7 +820,7 @@ export function TipsView({
               </div>
             ))}
             {thinking && (
-              <div className="coach-msg bot muted">Digitando...</div>
+              <div className="coach-msg bot muted">Executando...</div>
             )}
           </div>
 
@@ -524,7 +833,7 @@ export function TipsView({
           >
             <input
               type="text"
-              placeholder="Pergunte qualquer coisa sobre seu dia, agenda ou gastos..."
+              placeholder="Ex.: Lança gasto de 150 de internet ou Cria tarefa amanhã 10h"
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
             />

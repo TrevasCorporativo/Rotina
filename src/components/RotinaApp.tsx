@@ -77,6 +77,12 @@ export function RotinaApp({
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(
+    initialFinanceExpenses
+  );
+  const [financeIncomes, setFinanceIncomes] = useState<FinanceIncome[]>(
+    initialFinanceIncomes
+  );
 
   const [view, setView] = useState<ViewId>('dashboard');
   const [dashFilter, setDashFilter] = useState<'all' | 'today' | 'open'>('all');
@@ -1175,22 +1181,33 @@ export function RotinaApp({
           <FinanceView
             userId={profile.id}
             initialMonths={initialFinanceMonths}
-            initialExpenses={initialFinanceExpenses}
-            initialIncomes={initialFinanceIncomes}
+            expenses={financeExpenses}
+            incomes={financeIncomes}
+            onExpensesChange={setFinanceExpenses}
+            onIncomesChange={setFinanceIncomes}
             onToast={showToast}
           />
         )}
 
         {view === 'tips' && (
           <TipsView
+            userId={profile.id}
             displayName={profile.display_name}
             todayStr={todayStr}
             nowTimeStr={nowTimeStr}
             tasks={tasks}
             events={events}
             financeMonths={initialFinanceMonths}
-            financeExpenses={initialFinanceExpenses}
-            financeIncomes={initialFinanceIncomes}
+            financeExpenses={financeExpenses}
+            financeIncomes={financeIncomes}
+            onTaskCreated={(task) => setTasks((prev) => [task, ...prev])}
+            onEventCreated={(ev) => setEvents((prev) => [...prev, ev])}
+            onExpensesCreated={(exps) =>
+              setFinanceExpenses((prev) => [...prev, ...exps])
+            }
+            onIncomesCreated={(incs) =>
+              setFinanceIncomes((prev) => [...prev, ...incs])
+            }
             onNavigate={(target) => setView(target)}
           />
         )}

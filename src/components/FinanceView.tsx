@@ -7,8 +7,10 @@ import type { FinanceExpense, FinanceIncome, FinanceMonth } from '@/lib/types';
 interface FinanceViewProps {
   userId: string;
   initialMonths: FinanceMonth[];
-  initialExpenses: FinanceExpense[];
-  initialIncomes: FinanceIncome[];
+  expenses: FinanceExpense[];
+  incomes: FinanceIncome[];
+  onExpensesChange: React.Dispatch<React.SetStateAction<FinanceExpense[]>>;
+  onIncomesChange: React.Dispatch<React.SetStateAction<FinanceIncome[]>>;
   onToast: (msg: string) => void;
 }
 
@@ -66,15 +68,15 @@ function formatBRL(value: number): string {
 export function FinanceView({
   userId,
   initialMonths,
-  initialExpenses,
-  initialIncomes,
+  expenses,
+  incomes,
+  onExpensesChange: setExpenses,
+  onIncomesChange: setIncomes,
   onToast,
 }: FinanceViewProps) {
   const currentMonthKey = useMemo(() => getMonthKey(new Date()), []);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
   const [months] = useState<FinanceMonth[]>(initialMonths);
-  const [expenses, setExpenses] = useState<FinanceExpense[]>(initialExpenses);
-  const [incomes, setIncomes] = useState<FinanceIncome[]>(initialIncomes);
 
   // Modal state (expense or income, create or edit)
   const [modalMode, setModalMode] = useState<'expense' | 'income' | null>(null);
