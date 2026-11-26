@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/lib/theme';
 import { BrandLogo } from './BrandLogo';
 
@@ -100,7 +101,15 @@ export function LoginScreen() {
           onClick={toggleTheme}
           aria-label="Alternar tema"
         >
-          {theme === 'dark' ? '☀️ Claro' : '🌙 Escuro'}
+          {theme === 'dark' ? (
+            <>
+              <Sun size={15} strokeWidth={2.1} /> Claro
+            </>
+          ) : (
+            <>
+              <Moon size={15} strokeWidth={2.1} /> Escuro
+            </>
+          )}
         </button>
         <form className="access-form" onSubmit={handleSubmit}>
           <div className="eyebrow">CENTRAL DE COMANDO</div>

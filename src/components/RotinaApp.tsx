@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mic, Sparkles } from 'lucide-react';
+import { Mic, Moon, Sparkles, Sun } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { processCopilotCommand } from '@/lib/copilot-engine';
 import { getHolidayForDate } from '@/lib/holidays';
@@ -818,8 +818,13 @@ export function RotinaApp({
               className="theme-toggle"
               onClick={toggleTheme}
               title="Alternar tema claro/escuro"
+              aria-label="Alternar tema claro ou escuro"
             >
-              {theme === 'dark' ? '☀️' : '🌙'}
+              {theme === 'dark' ? (
+                <Sun size={16} strokeWidth={2.1} />
+              ) : (
+                <Moon size={16} strokeWidth={2.1} />
+              )}
             </button>
             <div className="today-pill live-datetime" aria-label="Data e hora atual">
               <span className="date-part">{todayLabel}</span>
@@ -1255,7 +1260,8 @@ export function RotinaApp({
                           setModalMode('event');
                         }}
                       >
-                        <strong>{ev.event_time.slice(0, 5)}</strong> {ev.title}
+                        <strong>{ev.event_time.slice(0, 5)}</strong>
+                        <span className="event-title-inline"> {ev.title}</span>
                       </span>
                     ))}
                   </div>
