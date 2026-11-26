@@ -781,6 +781,18 @@ button {
   border-color: var(--accent);
 }
 
+.mic-btn {
+  padding: 10px 12px !important;
+  flex: none;
+}
+
+.mic-btn.listening {
+  background: rgba(214, 92, 101, 0.16) !important;
+  border-color: var(--red) !important;
+  color: var(--red) !important;
+  animation: pulseGlow 1.1s ease-in-out infinite;
+}
+
 .coach-msg {
   padding: 10px 13px;
   border-radius: 12px;

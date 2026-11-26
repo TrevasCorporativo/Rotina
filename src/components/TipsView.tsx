@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import type {
   CalendarEvent,
@@ -174,6 +174,22 @@ export function TipsView({
   const [activeTab, setActiveTab] = useState<'chat' | 'diagnosis'>('chat');
   const [question, setQuestion] = useState('');
   const [thinking, setThinking] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [listening, setListening] = useState(false);
+  const recognitionRef = useRef<{ stop: () => void } | null>(null);
+
+  useEffect(() => {
+    const w = window as unknown as {
+      SpeechRecognition?: unknown;
+      webkitSpeechRecognition?: unknown;
+    };
+    if (w.SpeechRecognition || w.webkitSpeechRecognition) {
+      queueMicrotask(() => setSpeechSupported(true));
+    }
+    return () => {
+      recognitionRef.current?.stop();
+    };
+  }, []);
 
   const analysis = useMemo(() => {
     const insights: CoachInsight[] = [];
@@ -741,6 +757,65 @@ export function TipsView({
     setThinking(false);
   }
 
+  function toggleVoiceInput() {
+    if (listening) {
+      recognitionRef.current?.stop();
+      setListening(false);
+      return;
+    }
+
+    const w = window as unknown as {
+      SpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        maxAlternatives: number;
+        onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        maxAlternatives: number;
+        onresult: ((ev: { results: ArrayLike<ArrayLike<{ transcript: string }>> }) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      };
+    };
+
+    const SpeechRec = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    const rec = new SpeechRec();
+    rec.lang = 'pt-BR';
+    rec.interimResults = false;
+    rec.maxAlternatives = 1;
+
+    rec.onresult = (event) => {
+      const transcript = event.results?.[0]?.[0]?.transcript?.trim();
+      if (transcript) {
+        setQuestion(transcript);
+        void sendMessage(transcript);
+      }
+    };
+
+    rec.onerror = () => {
+      setListening(false);
+    };
+
+    rec.onend = () => {
+      setListening(false);
+    };
+
+    recognitionRef.current = rec;
+    setListening(true);
+    rec.start();
+  }
+
   return (
     <section>
       <div className="page-head">
@@ -834,10 +909,25 @@ export function TipsView({
           >
             <input
               type="text"
-              placeholder="Ex.: Lança gasto de 150 de internet ou Cria tarefa amanhã 10h"
+              placeholder={
+                listening
+                  ? 'Ouvindo... pode falar!'
+                  : 'Ex.: Lança gasto de 150 de internet ou Cria tarefa amanhã 10h'
+              }
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
             />
+            {speechSupported && (
+              <button
+                type="button"
+                className={`btn secondary mic-btn ${listening ? 'listening' : ''}`}
+                onClick={toggleVoiceInput}
+                title={listening ? 'Parar gravação' : 'Falar com o Copiloto'}
+                aria-label="Falar com o Copiloto"
+              >
+                {listening ? '⏹' : '🎙️'}
+              </button>
+            )}
             <button className="btn" type="submit" disabled={thinking}>
               Enviar
             </button>
