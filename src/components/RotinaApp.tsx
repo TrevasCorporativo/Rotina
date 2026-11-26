@@ -245,28 +245,35 @@ export function RotinaApp({
     const supabase = createClient();
 
     if (payload.type === 'task') {
+      const targetDates =
+        payload.due_dates.length > 0 ? payload.due_dates : [payload.due_date];
+      const rows = targetDates.map((d) => ({
+        user_id: profile.id,
+        title: payload.title,
+        category: payload.category,
+        due_date: d,
+        due_time: payload.due_time,
+        priority: payload.priority,
+        notify_enabled: true,
+        reminder_preset: payload.reminder_preset,
+        reminder_presets: payload.reminder_presets,
+      }));
+
       const { data, error } = await supabase
         .from('tasks')
-        .insert({
-          user_id: profile.id,
-          title: payload.title,
-          category: payload.category,
-          due_date: payload.due_date,
-          due_time: payload.due_time,
-          priority: payload.priority,
-          notify_enabled: true,
-          reminder_preset: payload.reminder_preset,
-          reminder_presets: payload.reminder_presets,
-        })
-        .select('*')
-        .single();
+        .insert(rows)
+        .select('*');
 
       if (error || !data) {
         showToast('Erro ao salvar tarefa.');
         return;
       }
-      setTasks((prev) => [data as Task, ...prev]);
-      showToast('Tarefa adicionada');
+      setTasks((prev) => [...(data as Task[]), ...prev]);
+      showToast(
+        data.length > 1
+          ? `${data.length} tarefas adicionadas`
+          : 'Tarefa adicionada'
+      );
     } else if (payload.id) {
       const { data, error } = await supabase
         .from('events')
@@ -294,28 +301,37 @@ export function RotinaApp({
       );
       showToast('Evento atualizado');
     } else {
+      const targetDates =
+        payload.event_dates.length > 0
+          ? payload.event_dates
+          : [payload.event_date];
+      const rows = targetDates.map((d) => ({
+        user_id: profile.id,
+        title: payload.title,
+        event_date: d,
+        event_time: payload.event_time,
+        location: payload.location,
+        notes: payload.notes,
+        notify_enabled: true,
+        notify_minutes_before: payload.notify_minutes_before,
+        reminder_preset: payload.reminder_preset,
+      }));
+
       const { data, error } = await supabase
         .from('events')
-        .insert({
-          user_id: profile.id,
-          title: payload.title,
-          event_date: payload.event_date,
-          event_time: payload.event_time,
-          location: payload.location,
-          notes: payload.notes,
-          notify_enabled: true,
-          notify_minutes_before: payload.notify_minutes_before,
-          reminder_preset: payload.reminder_preset,
-        })
-        .select('*')
-        .single();
+        .insert(rows)
+        .select('*');
 
       if (error || !data) {
         showToast('Erro ao salvar evento.');
         return;
       }
-      setEvents((prev) => [...prev, data as CalendarEvent]);
-      showToast('Evento adicionado');
+      setEvents((prev) => [...prev, ...(data as CalendarEvent[])]);
+      showToast(
+        data.length > 1
+          ? `${data.length} eventos adicionados`
+          : 'Evento adicionado'
+      );
     }
   }
 
