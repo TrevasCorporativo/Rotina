@@ -1,8 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Mic, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
+import { processCopilotCommand } from '@/lib/copilot-engine';
 import { getHolidayForDate } from '@/lib/holidays';
 import { getDailyMotivation, getDailyVerse } from '@/lib/daily-messages';
 import {
@@ -126,6 +128,11 @@ export function RotinaApp({
     title: string;
     body: string;
   } | null>(null);
+  const [quickSpeechSupported, setQuickSpeechSupported] = useState(false);
+  const [quickListening, setQuickListening] = useState(false);
+  const [quickTranscript, setQuickTranscript] = useState('');
+  const quickRecRef = useRef<{ stop: () => void } | null>(null);
+  const quickFinalRef = useRef('');
   const [refreshState, setRefreshState] = useState<{
     open: boolean;
     step: string;
@@ -146,6 +153,14 @@ export function RotinaApp({
   });
 
   useEffect(() => {
+    const w = window as unknown as {
+      SpeechRecognition?: unknown;
+      webkitSpeechRecognition?: unknown;
+    };
+    if (w.SpeechRecognition || w.webkitSpeechRecognition) {
+      queueMicrotask(() => setQuickSpeechSupported(true));
+    }
+
     const params = new URLSearchParams(window.location.search);
     const v = params.get('view');
     if (v === 'tasks' || v === 'calendar' || v === 'finance' || v === 'tips' || v === 'profile') {
@@ -500,9 +515,117 @@ export function RotinaApp({
     tasks: 'Minhas tarefas',
     calendar: 'Agenda',
     finance: 'Financeiro',
-    tips: 'Dicas',
+    tips: 'Severino',
     profile: 'Meu perfil',
   };
+
+  function startQuickVoice() {
+    if (quickListening) {
+      quickRecRef.current?.stop();
+      return;
+    }
+
+    const w = window as unknown as {
+      SpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        maxAlternatives: number;
+        onresult: ((ev: { results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        lang: string;
+        interimResults: boolean;
+        maxAlternatives: number;
+        onresult: ((ev: { results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      };
+    };
+
+    const SpeechRec = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    const rec = new SpeechRec();
+    rec.lang = 'pt-BR';
+    rec.interimResults = true;
+    rec.maxAlternatives = 1;
+    quickFinalRef.current = '';
+    setQuickTranscript('');
+
+    rec.onresult = (event) => {
+      let combined = '';
+      for (let i = 0; i < event.results.length; i++) {
+        combined += event.results[i][0].transcript + ' ';
+      }
+      const trimmed = combined.trim();
+      quickFinalRef.current = trimmed;
+      setQuickTranscript(trimmed);
+    };
+
+    rec.onerror = () => {
+      setQuickListening(false);
+      setQuickTranscript('');
+    };
+
+    rec.onend = async () => {
+      setQuickListening(false);
+      const spoken = quickFinalRef.current.trim();
+      setQuickTranscript('');
+      if (!spoken) return;
+
+      const currentMonthKey = todayStr.slice(0, 7);
+      const monthExp = financeExpenses.filter((e) => e.month_key === currentMonthKey);
+      const monthInc = financeIncomes.filter((i) => i.month_key === currentMonthKey);
+      const legacyIncome = Number(
+        initialFinanceMonths.find((m) => m.month_key === currentMonthKey)?.estimated_income ?? 0
+      );
+      const totalIncome =
+        monthInc.reduce((acc, i) => acc + Number(i.amount), 0) + legacyIncome;
+      const totalExp = monthExp.reduce((acc, e) => acc + Number(e.amount), 0);
+      const openTasks = tasks.filter((t) => !t.done);
+      const todayEvs = events.filter((e) => e.event_date === todayStr);
+
+      const reply = await processCopilotCommand(spoken, {
+        userId: profile.id,
+        firstName: profile.display_name.split(' ')[0] || 'Você',
+        todayStr,
+        currentMonthKey,
+        metrics: {
+          score: 80,
+          todayEvents: todayEvs,
+          tomorrowEvents: [],
+          next7DaysCount: events.length,
+          overdueTasks: [],
+          openTasks,
+          doneCount: tasks.filter((t) => t.done).length,
+          balance: totalIncome - totalExp,
+          totalIncome,
+          totalExp,
+          unpaidExp: monthExp.filter((e) => !e.paid),
+          monthExp,
+        },
+        onTaskCreated: (task) => setTasks((prev) => [task, ...prev]),
+        onEventCreated: (ev) => setEvents((prev) => [...prev, ev]),
+        onExpensesCreated: (exps) => setFinanceExpenses((prev) => [...prev, ...exps]),
+        onIncomesCreated: (incs) => setFinanceIncomes((prev) => [...prev, ...incs]),
+      });
+
+      setRecadoModal({
+        title: 'Severino executou seu pedido',
+        body: `Você disse: "${spoken}"\n\n${reply}`,
+      });
+    };
+
+    quickRecRef.current = rec;
+    setQuickListening(true);
+    rec.start();
+  }
 
   function isTaskOverdue(t: Task): boolean {
     if (t.done || !t.due_date) return false;
@@ -627,10 +750,10 @@ export function RotinaApp({
             <button
               className={view === 'tips' ? 'active' : ''}
               onClick={() => setView('tips')}
-              title="Dicas"
+              title="Severino"
             >
               <span className="ico">✦</span>
-              <span className="nav-text">Dicas</span>
+              <span className="nav-text">Severino</span>
             </button>
           </nav>
         </div>
@@ -1299,7 +1422,7 @@ export function RotinaApp({
           onClick={() => setView('tips')}
         >
           <span>✦</span>
-          <small>Dicas</small>
+          <small>Severino</small>
         </button>
         <button
           className={view === 'profile' ? 'active' : ''}
@@ -1325,6 +1448,59 @@ export function RotinaApp({
       )}
 
       {toastMsg && <div className="toast">{toastMsg}</div>}
+
+      {view !== 'tips' && (
+        <div className="floating-agent-dock">
+          <button
+            type="button"
+            className="floating-agent-btn"
+            onClick={() => setView('tips')}
+            title="Abrir Severino"
+          >
+            <Sparkles size={16} />
+            <span>Severino</span>
+          </button>
+          {quickSpeechSupported && (
+            <button
+              type="button"
+              className="floating-mic-btn"
+              onClick={startQuickVoice}
+              title="Falar com o Severino"
+              aria-label="Falar com o Severino"
+            >
+              <Mic size={18} strokeWidth={2.2} />
+            </button>
+          )}
+        </div>
+      )}
+
+      {quickListening && (
+        <div className="voice-overlay" role="dialog" aria-live="polite">
+          <div className="voice-card">
+            <div className="voice-orb">
+              <Mic size={30} strokeWidth={2.2} />
+            </div>
+            <div className="voice-waves" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+              <span />
+              <span />
+            </div>
+            <h3>Severino está ouvindo...</h3>
+            <p className="voice-transcript">
+              {quickTranscript || 'Pode falar naturalmente o que deseja lançar...'}
+            </p>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => quickRecRef.current?.stop()}
+            >
+              Concluir fala ✓
+            </button>
+          </div>
+        </div>
+      )}
 
       {recadoModal && (
         <div
