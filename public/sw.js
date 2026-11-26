@@ -31,6 +31,9 @@ self.addEventListener('push', (event) => {
     vibrate: [200, 100, 200],
     data: {
       url: payload.url || '/',
+      title: payload.title,
+      body: payload.body,
+      tag: payload.tag,
     },
   };
 
@@ -39,7 +42,13 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const data = event.notification.data || {};
+  const baseUrl = data.url || '/';
+
+  const u = new URL(baseUrl, self.location.origin);
+  if (data.title) u.searchParams.set('rt', data.title);
+  if (data.body) u.searchParams.set('rb', data.body);
+  const targetUrl = u.pathname + u.search;
 
   event.waitUntil(
     self.clients
@@ -55,4 +64,3 @@ self.addEventListener('notificationclick', (event) => {
       })
   );
 });
-

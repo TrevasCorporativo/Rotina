@@ -122,6 +122,10 @@ export function RotinaApp({
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [pushNeedsPrompt, setPushNeedsPrompt] = useState(false);
+  const [recadoModal, setRecadoModal] = useState<{
+    title: string;
+    body: string;
+  } | null>(null);
   const [refreshState, setRefreshState] = useState<{
     open: boolean;
     step: string;
@@ -144,8 +148,20 @@ export function RotinaApp({
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const v = params.get('view');
-    if (v === 'tasks' || v === 'calendar' || v === 'profile') {
+    if (v === 'tasks' || v === 'calendar' || v === 'finance' || v === 'tips' || v === 'profile') {
       queueMicrotask(() => setView(v));
+    }
+
+    const rt = params.get('rt');
+    const rb = params.get('rb');
+    if (rt || rb) {
+      queueMicrotask(() =>
+        setRecadoModal({
+          title: rt || 'Recado do dia',
+          body: rb || '',
+        })
+      );
+      window.history.replaceState({}, '', window.location.pathname + (v ? `?view=${v}` : ''));
     }
 
     if (isPushSupported()) {
@@ -1309,6 +1325,39 @@ export function RotinaApp({
       )}
 
       {toastMsg && <div className="toast">{toastMsg}</div>}
+
+      {recadoModal && (
+        <div
+          className="modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setRecadoModal(null);
+          }}
+        >
+          <div className="modal recado-modal">
+            <div className="recado-badge">RECADO DO DIA</div>
+            <div className="modal-head" style={{ marginBottom: 12 }}>
+              <h2>{recadoModal.title}</h2>
+              <button
+                className="close"
+                type="button"
+                onClick={() => setRecadoModal(null)}
+              >
+                ✕
+              </button>
+            </div>
+            <div className="recado-body">{recadoModal.body}</div>
+            <div className="modal-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => setRecadoModal(null)}
+              >
+                Entendido ✓
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {refreshState.open && (
         <div className="refresh-overlay" role="status" aria-live="polite">
