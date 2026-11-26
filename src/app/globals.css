@@ -55,6 +55,8 @@ body {
   width: 100%;
   min-height: 100dvh;
   overflow-x: clip;
+  overscroll-behavior-x: none;
+  touch-action: pan-y pinch-zoom;
   background: var(--bg);
   color: var(--text);
   font: 14px/1.5 var(--font-inter), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -653,6 +655,15 @@ button {
 
 .event-dot.overdue {
   background: rgba(214, 92, 101, 0.14);
+}
+
+.event-more-pill {
+  display: block;
+  margin-top: 3px;
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
 }
 
 .tips-grid {
@@ -2078,28 +2089,47 @@ button {
   .form-row {
     grid-template-columns: 1fr;
   }
+  .calendar {
+    touch-action: manipulation;
+  }
   .calendar .dow {
-    padding: 6px 2px;
-    font-size: 10px;
+    padding: 7px 2px;
+    font-size: 11px;
   }
   .calendar .cell {
-    padding: 6px 4px;
-    min-height: 76px;
+    padding: 6px 3px;
+    min-height: 70px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
   }
   .cell-num {
-    font-size: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    text-align: center;
+    margin-bottom: 2px;
   }
   .event-dot {
     font-size: 10px;
-    padding: 2px 4px;
+    padding: 2px 3px;
     text-align: center;
+    margin-top: 0;
   }
   .event-dot .event-title-inline {
     display: none;
   }
   .holiday-dot {
     font-size: 8px;
-    padding: 2px 3px;
+    padding: 1px 3px;
+    text-align: center;
+    margin-top: 0;
+  }
+  .event-edit,
+  .task-delete {
+    min-width: 34px;
+    min-height: 34px;
+    display: inline-grid;
+    place-items: center;
   }
   .welcome-card {
     padding: 18px;

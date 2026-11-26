@@ -1276,6 +1276,11 @@ export function RotinaApp({
                         <span className="event-title-inline"> {ev.title}</span>
                       </span>
                     ))}
+                    {cell.dayEvents.length > 2 && (
+                      <span className="event-more-pill">
+                        +{cell.dayEvents.length - 2}
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
