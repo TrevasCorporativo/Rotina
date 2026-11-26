@@ -1421,7 +1421,7 @@ export function RotinaApp({
           className={view === 'tips' ? 'active' : ''}
           onClick={() => setView('tips')}
         >
-          <span>✦</span>
+          <span className="severino-nav-ico">✦</span>
           <small>Severino</small>
         </button>
         <button
@@ -1457,7 +1457,7 @@ export function RotinaApp({
             onClick={() => setView('tips')}
             title="Abrir Severino"
           >
-            <Sparkles size={20} strokeWidth={2.2} />
+            <Sparkles size={16} />
             <span>Severino</span>
           </button>
           {quickSpeechSupported && (
@@ -1468,7 +1468,7 @@ export function RotinaApp({
               title="Falar com o Severino"
               aria-label="Falar com o Severino"
             >
-              <Mic size={22} strokeWidth={2.2} />
+              <Mic size={18} strokeWidth={2.2} />
             </button>
           )}
         </div>
