@@ -347,6 +347,8 @@ async function handleDispatch(request: Request) {
         tag: `daily-motivation-${dateStr}`,
       });
 
+      await new Promise((r) => setTimeout(r, 800));
+
       const d2 = await sendToUserDevices(admin, subs, {
         title: `📖 Versículo do dia · ${verse.reference}`,
         body: `"${verse.text}"`,
