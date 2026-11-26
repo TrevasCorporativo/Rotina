@@ -660,14 +660,11 @@ export function RotinaApp({
             >
               {theme === 'dark' ? '☀️' : '🌙'}
             </button>
-            <div className="live-clock" aria-label="Hora atual">
-              {liveClockLabel}
+            <div className="today-pill live-datetime" aria-label="Data e hora atual">
+              <span className="date-part">{todayLabel}</span>
+              <span className="time-sep">·</span>
+              <span className="time-part">{liveClockLabel}</span>
             </div>
-            <div className="today-pill">{todayLabel}</div>
-            <span className="user-welcome">{profile.display_name}</span>
-            <button className="logout-btn" onClick={handleLogout}>
-              Sair ↗
-            </button>
             <button
               type="button"
               className="avatar-btn"
@@ -1203,6 +1200,7 @@ export function RotinaApp({
             profile={profile}
             onProfileUpdated={setProfile}
             onToast={showToast}
+            onLogout={handleLogout}
           />
         )}
       </main>

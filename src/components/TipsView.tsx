@@ -64,18 +64,14 @@ export function TipsView({
   const firstName = displayName.split(' ')[0] || 'Você';
   const currentMonthKey = todayStr.slice(0, 7);
 
-  const [pillarFilter, setPillarFilter] = useState<
-    'all' | 'Agenda & Energia' | 'Tarefas & Foco' | 'Financeiro'
-  >('all');
+  const [activeTab, setActiveTab] = useState<'chat' | 'diagnosis'>('chat');
   const [question, setQuestion] = useState('');
   const [thinking, setThinking] = useState(false);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
 
   const analysis = useMemo(() => {
     const insights: CoachInsight[] = [];
     let score = 82;
 
-    // --- Finance metrics ---
     const monthExp = financeExpenses.filter((e) => e.month_key === currentMonthKey);
     const monthInc = financeIncomes.filter((i) => i.month_key === currentMonthKey);
     const legacyIncome = Number(
@@ -87,7 +83,6 @@ export function TipsView({
     const unpaidExp = monthExp.filter((e) => !e.paid);
     const balance = totalIncome - totalExp;
 
-    // --- Task metrics ---
     const openTasks = tasks.filter((t) => !t.done);
     const doneTasks = tasks.filter((t) => t.done);
     const overdueTasks = openTasks.filter(
@@ -100,17 +95,17 @@ export function TipsView({
     );
     const highOpen = openTasks.filter((t) => t.priority === 'high');
 
-    // --- Agenda metrics ---
     const todayEvents = events
       .filter((e) => e.event_date === todayStr)
       .sort((a, b) => a.event_time.localeCompare(b.event_time));
     const tomorrowStr = addDaysStr(todayStr, 1);
-    const tomorrowEvents = events.filter((e) => e.event_date === tomorrowStr);
+    const tomorrowEvents = events
+      .filter((e) => e.event_date === tomorrowStr)
+      .sort((a, b) => a.event_time.localeCompare(b.event_time));
     const next7DaysEvents = events.filter(
       (e) => e.event_date >= todayStr && e.event_date <= addDaysStr(todayStr, 7)
     );
 
-    // Check tight schedule gaps today
     let tightGaps = 0;
     for (let i = 1; i < todayEvents.length; i++) {
       const [h1, m1] = todayEvents[i - 1].event_time.split(':').map(Number);
@@ -119,21 +114,17 @@ export function TipsView({
       if (diffMins >= 0 && diffMins < 60) tightGaps++;
     }
 
-    // 1. Agenda & Energia insights
     if (todayEvents.length >= 4 || tomorrowEvents.length >= 4 || tightGaps >= 2) {
       score -= 14;
       insights.push({
         id: 'agenda-heavy',
         pillar: 'Agenda & Energia',
         severity: 'alert',
-        title: 'Alerta de sobrecarga: agenda muito apertada',
-        analysis: `Você tem ${todayEvents.length} compromisso(s) hoje e ${tomorrowEvents.length} amanhã${
-          tightGaps > 0 ? ` (com ${tightGaps} intervalo(s) menor(es) que 1h)` : ''
-        }. Dias assim drenam sua energia rápido e aumentam o estresse.`,
+        title: 'Agenda apertada — cuide do seu descanso',
+        analysis: `Você tem ${todayEvents.length} compromisso(s) hoje e ${tomorrowEvents.length} amanhã. Dias muito cheios drenam energia rápido.`,
         actions: [
-          'Reavalie se algum compromisso pode ser remarcado ou resolvido por mensagem.',
-          'Bloqueie pelo menos 30 minutos livres para respirar, beber água e almoçar sem pressa.',
-          'Evite assumir novas tarefas pesadas hoje.',
+          'Veja se algo pode ser remarcado ou resolvido por mensagem.',
+          'Reserve 30 min livres para respirar e comer sem pressa.',
         ],
         ctaLabel: 'Rever Agenda',
         ctaTarget: 'calendar',
@@ -144,46 +135,31 @@ export function TipsView({
         id: 'agenda-busy-week',
         pillar: 'Agenda & Energia',
         severity: 'warning',
-        title: 'Semana intensa pela frente',
-        analysis: `Você já tem ${next7DaysEvents.length} compromissos marcados para os próximos 7 dias. Sem pausas planejadas, o cansaço acumula até o fim de semana.`,
-        actions: [
-          'Escolha uma noite da semana para desligar de pendências e descansar de verdade.',
-          'Prepare roupas/documentos na véspera para reduzir a correria pela manhã.',
-        ],
-        ctaLabel: 'Ver semana na Agenda',
-        ctaTarget: 'calendar',
-      });
-    } else if (todayEvents.length === 0) {
-      insights.push({
-        id: 'agenda-free',
-        pillar: 'Agenda & Energia',
-        severity: 'good',
-        title: 'Dia livre de compromissos fixos',
-        analysis:
-          'Sua agenda de hoje está aberta! Esse é o melhor cenário para focar em algo que você vem adiando ou simplesmente recuperar as energias.',
-        actions: [
-          'Use 1 bloco de foco de 45 min para matar uma pendência importante.',
-          'Reserve um tempo de qualidade para descansar ou fazer algo que te faça bem.',
-        ],
-        ctaLabel: 'Planejar na Agenda',
+        title: 'Semana movimentada',
+        analysis: `Há ${next7DaysEvents.length} compromissos nos próximos 7 dias. Planeje pausas para não chegar esgotado(a).`,
+        actions: ['Escolha uma noite livre esta semana para descansar de verdade.'],
+        ctaLabel: 'Ver semana',
         ctaTarget: 'calendar',
       });
     } else {
       insights.push({
-        id: 'agenda-balanced',
+        id: 'agenda-ok',
         pillar: 'Agenda & Energia',
         severity: 'good',
-        title: 'Ritmo saudável de compromissos',
-        analysis: `Hoje você tem ${todayEvents.length} compromisso(s) e ${tomorrowEvents.length} amanhã. É um volume equilibrado que permite cumprir tudo sem correrias.`,
-        actions: [
-          'Chegue ou se conecte com 10 min de antecedência para manter a calma.',
-        ],
+        title:
+          todayEvents.length === 0
+            ? 'Dia livre de compromissos fixos'
+            : 'Ritmo equilibrado na agenda',
+        analysis:
+          todayEvents.length === 0
+            ? 'Sua agenda de hoje está aberta — ótimo momento para focar com calma ou descansar.'
+            : `Você tem ${todayEvents.length} compromisso(s) hoje e ${tomorrowEvents.length} amanhã, com bom espaço entre eles.`,
+        actions: ['Aproveite para manter intervalos leves e dormir bem hoje.'],
         ctaLabel: 'Abrir Agenda',
         ctaTarget: 'calendar',
       });
     }
 
-    // 2. Tarefas & Foco insights
     if (overdueTasks.length > 0) {
       score -= Math.min(20, overdueTasks.length * 5);
       insights.push({
@@ -192,78 +168,60 @@ export function TipsView({
         severity: 'alert',
         title: `${overdueTasks.length} ${
           overdueTasks.length === 1 ? 'tarefa em atraso' : 'tarefas em atraso'
-        } pesando na mente`,
+        }`,
         analysis: `Itens atrasados (${overdueTasks
           .slice(0, 2)
           .map((t) => `"${t.title}"`)
-          .join(', ')}) geram sensação constante de pendência.`,
+          .join(', ')}) ficam pesando na cabeça.`,
         actions: [
-          'Escolha a mais rápida (menos de 10 min) e faça agora para ganhar embalo.',
-          'Se não der para fazer hoje, atualize a data para um dia realista em vez de deixar no vermelho.',
+          'Resolva a menor delas agora (menos de 10 min) para destravar.',
+          'Reagende as que não cabem hoje para uma data real.',
         ],
-        ctaLabel: 'Resolver tarefas',
+        ctaLabel: 'Ir para Tarefas',
         ctaTarget: 'tasks',
       });
-    }
-
-    if (highOpen.length >= 3) {
+    } else if (highOpen.length >= 3) {
       score -= 8;
       insights.push({
         id: 'tasks-high',
         pillar: 'Tarefas & Foco',
         severity: 'warning',
-        title: 'Excesso de prioridades altas ao mesmo tempo',
-        analysis: `Você marcou ${highOpen.length} tarefas como prioridade Alta. Quando tudo é urgente, o cérebro trava e você sente que não rendeu.`,
-        actions: [
-          'Aplique a regra do Top 3: escolha no máximo 3 tarefas essenciais para hoje.',
-          'Rebaixe as demais para Média até concluir as principais.',
-        ],
-        ctaLabel: 'Organizar prioridades',
+        title: 'Muitas prioridades altas juntas',
+        analysis: `${highOpen.length} tarefas estão como prioridade Alta. Escolha no máximo 3 essenciais para hoje.`,
+        actions: ['Foque em uma de cada vez antes de abrir novas frentes.'],
+        ctaLabel: 'Organizar tarefas',
         ctaTarget: 'tasks',
       });
-    } else if (tasks.length > 0 && openTasks.length === 0) {
-      score += 8;
+    } else {
       insights.push({
-        id: 'tasks-clear',
+        id: 'tasks-ok',
         pillar: 'Tarefas & Foco',
         severity: 'good',
-        title: 'Lista zerada! Todas as tarefas confirmadas',
-        analysis: `Você concluiu ${doneTasks.length} tarefa(s). Aproveite a sensação de dever cumprido sem inventar trabalho à toa.`,
-        actions: ['Descanse ou planeje amanhã com calma antes de encerrar o dia.'],
-      });
-    } else if (openTasks.length > 0) {
-      insights.push({
-        id: 'tasks-flow',
-        pillar: 'Tarefas & Foco',
-        severity: 'info',
-        title: `${openTasks.length} ${
-          openTasks.length === 1 ? 'tarefa em aberto' : 'tarefas em aberto'
-        } no radar`,
+        title:
+          openTasks.length === 0
+            ? 'Todas as tarefas concluídas!'
+            : `${openTasks.length} tarefa(s) sob controle`,
         analysis:
-          'Você está com um volume controlável. Começar pelo item que mais te incomoda libera energia mental para o resto do dia.',
-        actions: [
-          'Conclua 1 tarefa antes de abrir várias abas ou distrações.',
-        ],
-        ctaLabel: 'Ver minhas tarefas',
+          openTasks.length === 0
+            ? `Você já confirmou ${doneTasks.length} tarefa(s). Excelente ritmo!`
+            : 'Volume tranquilo e sem atrasos. Continue no seu ritmo.',
+        actions: ['Conclua uma pendência por vez com foco.'],
+        ctaLabel: 'Ver tarefas',
         ctaTarget: 'tasks',
       });
     }
 
-    // 3. Financeiro insights
     if (totalIncome === 0 && totalExp === 0) {
       score -= 5;
       insights.push({
         id: 'fin-empty',
         pillar: 'Financeiro',
         severity: 'info',
-        title: 'Seu panorama financeiro do mês ainda está vazio',
+        title: 'Lance sua receita e contas do mês',
         analysis:
-          'Sem lançar sua receita e contas fixas, fica difícil prever quanto realmente pode gastar sem aperto no fim do mês.',
-        actions: [
-          'Cadastre sua receita fixa mensal em "+ Nova receita".',
-          'Lance suas contas recorrentes (aluguel, internet, cartão) em "+ Novo gasto".',
-        ],
-        ctaLabel: 'Configurar Financeiro',
+          'Com sua receita recorrente e gastos lançados, consigo te mostrar exatamente quanto sobra livre.',
+        actions: ['Adicione suas receitas e contas fixas na aba Financeiro.'],
+        ctaLabel: 'Abrir Financeiro',
         ctaTarget: 'finance',
       });
     } else if (balance < 0) {
@@ -272,13 +230,13 @@ export function TipsView({
         id: 'fin-negative',
         pillar: 'Financeiro',
         severity: 'alert',
-        title: `Atenção: orçamento negativo em ${formatBRL(Math.abs(balance))}`,
-        analysis: `Seus gastos (${formatBRL(totalExp)}) superaram a receita prevista (${formatBRL(
+        title: `Orçamento negativo em ${formatBRL(Math.abs(balance))}`,
+        analysis: `Os gastos (${formatBRL(totalExp)}) passaram da receita (${formatBRL(
           totalIncome
         )}) neste mês.`,
         actions: [
-          'Corte ou adie gastos não essenciais (lazer/assinaturas) pelos próximos 15 dias.',
-          'Revise se há alguma renda extra ou ajuste possível para cobrir a diferença.',
+          'Segure gastos variáveis pelos próximos dias.',
+          'Revise assinaturas ou compras parceladas que podem esperar.',
         ],
         ctaLabel: 'Ajustar Financeiro',
         ctaTarget: 'finance',
@@ -286,85 +244,57 @@ export function TipsView({
     } else {
       const savingsRate =
         totalIncome > 0 ? Math.round((balance / totalIncome) * 100) : 0;
-
-      if (totalIncome > 0 && savingsRate < 15) {
-        score -= 8;
-        insights.push({
-          id: 'fin-tight',
-          pillar: 'Financeiro',
-          severity: 'warning',
-          title: `Margem apertada: apenas ${savingsRate}% livre`,
-          analysis: `Sobram ${formatBRL(balance)} após os gastos previstos. Qualquer imprevisto pode deixar o mês no vermelho.`,
-          actions: [
-            'Evite novas compras parceladas este mês.',
-            'Tente guardar pelo menos 10% assim que o dinheiro cair na conta.',
-          ],
-          ctaLabel: 'Revisar gastos',
-          ctaTarget: 'finance',
-        });
-      } else if (totalIncome > 0) {
-        score += 6;
-        insights.push({
-          id: 'fin-healthy',
-          pillar: 'Financeiro',
-          severity: 'good',
-          title: `Saúde financeira em dia (${savingsRate}% livre)`,
-          analysis: `Você tem ${formatBRL(balance)} de saldo previsto este mês. Excelente controle entre receitas e despesas!`,
-          actions: [
-            'Transfira parte dessa sobra para sua reserva de emergência logo no início do mês.',
-          ],
-          ctaLabel: 'Ver panorama',
-          ctaTarget: 'finance',
-        });
-      }
-
-      if (unpaidExp.length > 0) {
-        const currentDay = Number(todayStr.slice(8, 10));
-        const dueSoon = unpaidExp.filter(
-          (e) => e.due_day && e.due_day <= currentDay + 4
-        );
-        if (dueSoon.length > 0) {
-          insights.push({
-            id: 'fin-bills',
-            pillar: 'Financeiro',
-            severity: 'warning',
-            title: `${dueSoon.length} conta(s) vencendo nos próximos dias`,
-            analysis: `Contas pendentes próximas do vencimento: ${dueSoon
-              .slice(0, 3)
-              .map((e) => `${e.title} (dia ${e.due_day})`)
-              .join(', ')}.`,
-            actions: [
-              'Separe o valor hoje e marque como pago no Financeiro assim que quitar para evitar juros.',
-            ],
-            ctaLabel: 'Marcar pagamentos',
-            ctaTarget: 'finance',
-          });
-        }
-      }
+      const dueSoon = unpaidExp.filter(
+        (e) => e.due_day && e.due_day <= Number(todayStr.slice(8, 10)) + 4
+      );
+      insights.push({
+        id: 'fin-status',
+        pillar: 'Financeiro',
+        severity: dueSoon.length > 0 || (totalIncome > 0 && savingsRate < 15) ? 'warning' : 'good',
+        title:
+          dueSoon.length > 0
+            ? `${dueSoon.length} conta(s) vencem em breve`
+            : `Saldo positivo de ${formatBRL(balance)}`,
+        analysis:
+          dueSoon.length > 0
+            ? `Fique de olho em: ${dueSoon
+                .slice(0, 2)
+                .map((e) => `${e.title} (dia ${e.due_day})`)
+                .join(', ')}.`
+            : `Você tem ${savingsRate}% da receita livre este mês. Ótimo controle!`,
+        actions: [
+          dueSoon.length > 0
+            ? 'Separe o valor e marque como pago assim que quitar.'
+            : 'Considere guardar uma parte desse saldo para sua reserva.',
+        ],
+        ctaLabel: 'Ver Financeiro',
+        ctaTarget: 'finance',
+      });
     }
 
     const clampedScore = Math.max(25, Math.min(100, score));
-    const mood =
+    const summary =
       clampedScore >= 80
-        ? 'Equilíbrio ótimo! Sua rotina está bem encaminhada.'
+        ? 'Sua rotina está bem equilibrada.'
         : clampedScore >= 60
-        ? 'Rotina sob controle, mas há alguns pontos pedindo atenção.'
-        : 'Sinal de alerta: desacelere, priorize o essencial e organize os excessos.';
+        ? 'Tudo sob controle, com alguns pontos para ajustar.'
+        : 'Dia mais pesado — desacelere e priorize o essencial.';
 
     return {
       score: clampedScore,
-      mood,
+      summary,
       insights,
       metrics: {
-        todayEventsCount: todayEvents.length,
-        tomorrowEventsCount: tomorrowEvents.length,
-        overdueCount: overdueTasks.length,
-        openTasksCount: openTasks.length,
+        todayEvents,
+        tomorrowEvents,
+        next7DaysCount: next7DaysEvents.length,
+        overdueTasks,
+        openTasks,
+        doneCount: doneTasks.length,
         balance,
         totalIncome,
         totalExp,
-        todayEvents,
-        overdueTasks,
+        unpaidExp,
       },
     };
   }, [
@@ -378,66 +308,116 @@ export function TipsView({
     todayStr,
   ]);
 
-  function buildSmartReply(promptText: string): string {
-    const q = promptText.toLowerCase();
+  const [messages, setMessages] = useState<ChatMessage[]>(() => [
+    {
+      role: 'assistant',
+      text: `Oi, ${firstName}! Dei uma olhada na sua rotina de hoje: você tem ${analysis.metrics.todayEvents.length} compromisso(s), ${analysis.metrics.openTasks.length} tarefa(s) aberta(s) e saldo de ${formatBRL(analysis.metrics.balance)} no mês.\n\nPode conversar comigo normalmente — me pergunte o que priorizar, se precisa descansar, ou como estão suas finanças.`,
+    },
+  ]);
+
+  function buildConversationalReply(promptText: string): string {
+    const q = promptText
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '');
+
     const {
-      todayEventsCount,
-      tomorrowEventsCount,
-      overdueCount,
-      openTasksCount,
+      todayEvents,
+      tomorrowEvents,
+      next7DaysCount,
+      overdueTasks,
+      openTasks,
       balance,
       totalIncome,
       totalExp,
-      todayEvents,
-      overdueTasks,
+      unpaidExp,
     } = analysis.metrics;
 
-    if (q.includes('descans') || q.includes('cansad') || q.includes('sobrecar')) {
-      if (todayEventsCount >= 3 || overdueCount >= 2) {
-        return `${firstName}, sendo bem sincero com seus dados: hoje você tem ${todayEventsCount} compromisso(s) e ${overdueCount} tarefa(s) em atraso. Não tente zerar tudo na força! Escolha apenas 1 pendência importante, faça o básico bem feito e reserve pelo menos 30 minutos hoje sem tela nem cobrança para descansar.`;
-      }
-      return `${firstName}, sua carga hoje está tranquila (${todayEventsCount} compromisso(s) e ${openTasksCount} tarefa(s) aberta(s)). Sim, você pode — e deve — tirar um tempo para descansar sem culpa hoje!`;
+    if (/^(oi|ola|e ai|bom dia|boa tarde|boa noite|tudo bem)/.test(q)) {
+      return `Oi, ${firstName}! Tudo ótimo por aqui. Seu índice de equilíbrio hoje está em ${analysis.score}/100. Quer que eu te ajude a organizar o que fazer hoje, revisar a agenda ou olhar o financeiro?`;
     }
 
-    if (q.includes('prioriz') || q.includes('hoje') || q.includes('fazer')) {
-      const topTask = overdueTasks[0]?.title;
-      const nextEv = todayEvents[0]
-        ? `${todayEvents[0].event_time.slice(0, 5)} (${todayEvents[0].title})`
-        : null;
-      return `Plano prático para hoje, ${firstName}:\n1) ${
-        nextEv
-          ? `Fique atento ao compromisso às ${nextEv}.`
-          : 'Você está livre de compromissos fixos hoje.'
-      }\n2) ${
-        topTask
-          ? `Mate primeiro a pendência "${topTask}" para aliviar a cabeça.`
-          : `Você tem ${openTasksCount} tarefa(s) aberta(s) — escolha no máximo 2 para concluir hoje.`
-      }\n3) Faça pausas curtas entre uma entrega e outra.`;
+    if (q.includes('obrigad') || q.includes('valeu') || q.includes('show')) {
+      return `Por nada, ${firstName}! Sempre que precisar colocar a cabeça no lugar ou revisar o dia, é só me chamar aqui.`;
     }
 
-    if (q.includes('gast') || q.includes('dinheiro') || q.includes('financ') || q.includes('sald')) {
-      if (totalIncome === 0 && totalExp === 0) {
-        return `Ainda não encontrei lançamentos neste mês, ${firstName}. Vá em Financeiro, cadastre sua receita fixa e suas contas do mês que eu analiso seu saldo na hora.`;
+    if (
+      q.includes('descans') ||
+      q.includes('cansad') ||
+      q.includes('estress') ||
+      q.includes('pausa') ||
+      q.includes('dormir') ||
+      q.includes('sobrecar')
+    ) {
+      if (todayEvents.length >= 3 || overdueTasks.length >= 2) {
+        return `Olhando para os seus dados, faz todo sentido você sentir o peso: são ${todayEvents.length} compromisso(s) hoje e ${overdueTasks.length} tarefa(s) atrasada(s). Não tente abraçar tudo hoje. Escolha só 1 coisa importante, resolva, e depois se dê pelo menos 30 a 45 minutos de descanso real sem culpa.`;
       }
-      return `Resumo financeiro do mês: você tem ${formatBRL(
-        totalIncome
-      )} de receita prevista contra ${formatBRL(
-        totalExp
-      )} de gastos, deixando um saldo de ${formatBRL(balance)}. ${
-        balance < 0
-          ? 'Vale segurar gastos variáveis agora e revisar assinaturas.'
-          : 'Mantenha as contas em dia e tente guardar uma parte desse saldo.'
+      return `Sua carga de hoje está bem leve (${todayEvents.length} compromisso(s) e ${openTasks.length} tarefa(s) aberta(s)). Pode descansar tranquilo(a) sim!`;
+    }
+
+    if (
+      q.includes('amanha') ||
+      q.includes('agenda') ||
+      q.includes('compromisso') ||
+      q.includes('semana') ||
+      q.includes('horario')
+    ) {
+      const todayTxt = todayEvents.length
+        ? todayEvents
+            .map((e) => `${e.event_time.slice(0, 5)} ${e.title}`)
+            .join(', ')
+        : 'nenhum compromisso marcado';
+      const tomorrowTxt = tomorrowEvents.length
+        ? tomorrowEvents
+            .map((e) => `${e.event_time.slice(0, 5)} ${e.title}`)
+            .join(', ')
+        : 'dia livre';
+      return `Na sua agenda:\n• Hoje: ${todayTxt}.\n• Amanhã: ${tomorrowTxt}.\n• Próximos 7 dias: ${next7DaysCount} compromisso(s) no total.${
+        todayEvents.length >= 4 || tomorrowEvents.length >= 4
+          ? '\n\nDica: tente deixar um respiro entre eles para não se cansar.'
+          : ''
       }`;
     }
 
-    return `Aqui está meu diagnóstico rápido para você, ${firstName}: seu índice de equilíbrio hoje está em ${analysis.score}/100. Você tem ${todayEventsCount} compromisso(s) hoje, ${tomorrowEventsCount} amanhã, ${overdueCount} tarefa(s) atrasada(s) e saldo previsto de ${formatBRL(
-      balance
-    )}. Minha recomendação principal: ${
-      analysis.insights[0]?.title || 'mantenha a constância sem se cobrar perfeição.'
-    }`;
+    if (
+      q.includes('prioriz') ||
+      q.includes('tarefa') ||
+      q.includes('fazer') ||
+      q.includes('hoje') ||
+      q.includes('atras')
+    ) {
+      if (overdueTasks.length > 0) {
+        return `Comece tirando da frente o que já passou do prazo: "${overdueTasks[0].title}". Depois, se sobrar energia, escolha mais 1 tarefa aberta (${openTasks.length} no total) e deixe o resto para amanhã sem peso.`;
+      }
+      if (openTasks.length > 0) {
+        return `Você não tem atrasos! Das ${openTasks.length} tarefa(s) em aberto, escolha "${openTasks[0].title}" como foco principal agora. Fazendo uma por vez você rende muito mais.`;
+      }
+      return `Suas tarefas estão todas em dia! Se quiser, aproveite para descansar ou adiantar algo leve.`;
+    }
+
+    if (
+      q.includes('gast') ||
+      q.includes('financ') ||
+      q.includes('dinheiro') ||
+      q.includes('sald') ||
+      q.includes('receita') ||
+      q.includes('conta') ||
+      q.includes('pagar')
+    ) {
+      if (totalIncome === 0 && totalExp === 0) {
+        return `Ainda não tem receitas nem gastos lançados neste mês. Assim que você cadastrar no Financeiro, eu analiso seu saldo e te aviso se algo estiver apertado.`;
+      }
+      return `No Financeiro deste mês:\n• Receitas: ${formatBRL(totalIncome)}\n• Gastos: ${formatBRL(totalExp)}\n• Saldo previsto: ${formatBRL(balance)}\n• Contas em aberto: ${unpaidExp.length}\n\n${
+        balance < 0
+          ? 'Atenção: o saldo está negativo. Vale segurar gastos extras nos próximos dias.'
+          : 'Você está no positivo! Lembre-se de guardar uma parte se puder.'
+      }`;
+    }
+
+    return `Entendi, ${firstName}! Olhando seu momento atual (equilíbrio ${analysis.score}/100): você tem ${todayEvents.length} compromisso(s) hoje, ${overdueTasks.length} tarefa(s) atrasada(s) e saldo de ${formatBRL(balance)}.\n\nMinha principal sugestão agora: ${analysis.insights[0]?.title.toLowerCase()}. Quer que eu detalhe sua agenda, suas tarefas ou seu financeiro?`;
   }
 
-  async function askCoach(customPrompt?: string) {
+  async function sendMessage(customPrompt?: string) {
     const text = (customPrompt ?? question).trim();
     if (!text || thinking) return;
 
@@ -445,17 +425,12 @@ export function TipsView({
     setMessages((prev) => [...prev, { role: 'user', text }]);
     setThinking(true);
 
-    await new Promise((r) => setTimeout(r, 480));
-    const reply = buildSmartReply(text);
+    await new Promise((r) => setTimeout(r, 420));
+    const reply = buildConversationalReply(text);
 
     setMessages((prev) => [...prev, { role: 'assistant', text: reply }]);
     setThinking(false);
   }
-
-  const filteredInsights =
-    pillarFilter === 'all'
-      ? analysis.insights
-      : analysis.insights.filter((i) => i.pillar === pillarFilter);
 
   return (
     <section>
@@ -464,62 +439,68 @@ export function TipsView({
           <div className="eyebrow">COPILOTO DE ROTINA</div>
           <h1>Dicas &amp; Bem-estar</h1>
           <p className="subtitle">
-            Análise realista da sua agenda, tarefas e finanças com sugestões práticas.
+            Converse com seu assistente ou veja o diagnóstico organizado da sua rotina.
           </p>
         </div>
       </div>
 
-      {/* Hero Score & Diagnosis */}
+      {/* Compact Hero */}
       <div className="coach-hero">
         <div className="coach-hero-main">
-          <div className="welcome-eyebrow">DIAGNÓSTICO EM TEMPO REAL</div>
+          <div className="welcome-eyebrow">ÍNDICE DE EQUILÍBRIO</div>
           <h2>
-            {firstName}, seu índice de equilíbrio hoje é{' '}
-            <span style={{ color: 'var(--accent)' }}>{analysis.score}/100</span>
+            {analysis.score}/100 · {analysis.summary}
           </h2>
-          <p>{analysis.mood}</p>
-          <div className="coach-pills">
-            <span>📅 {analysis.metrics.todayEventsCount} hoje</span>
-            <span>☑ {analysis.metrics.openTasksCount} abertas</span>
-            <span>
-              💰 {formatBRL(analysis.metrics.balance)} saldo do mês
-            </span>
+          <div className="coach-pills" style={{ marginTop: 10 }}>
+            <span>📅 {analysis.metrics.todayEvents.length} hoje</span>
+            <span>☑ {analysis.metrics.openTasks.length} tarefas abertas</span>
+            <span>💰 {formatBRL(analysis.metrics.balance)} saldo</span>
           </div>
         </div>
-        <div className="coach-score-ring" aria-label={`Índice ${analysis.score} de 100`}>
+        <div className="coach-score-ring">
           <strong>{analysis.score}</strong>
-          <small>de 100</small>
+          <small>pontos</small>
         </div>
       </div>
 
-      {/* Interactive AI Assistant Box */}
-      <div className="panel">
-        <div className="panel-head">
-          <h2>✦ Pergunte ao seu Copiloto</h2>
-          <span className="muted" style={{ fontSize: 11 }}>
-            Respostas baseadas nos seus dados reais
-          </span>
-        </div>
+      {/* Clean 2-tab switcher */}
+      <div className="filter-row" style={{ marginBottom: 16 }}>
+        <button
+          type="button"
+          className={`chip ${activeTab === 'chat' ? 'active' : ''}`}
+          onClick={() => setActiveTab('chat')}
+        >
+          ✦ Conversar com Copiloto
+        </button>
+        <button
+          type="button"
+          className={`chip ${activeTab === 'diagnosis' ? 'active' : ''}`}
+          onClick={() => setActiveTab('diagnosis')}
+        >
+          📊 Diagnóstico &amp; Ações ({analysis.insights.length})
+        </button>
+      </div>
 
-        <div className="filter-row">
-          {[
-            'O que devo priorizar hoje?',
-            'Preciso descansar?',
-            'Como está meu financeiro?',
-            'Resumo da minha semana',
-          ].map((prompt) => (
-            <button
-              key={prompt}
-              type="button"
-              className="chip"
-              onClick={() => askCoach(prompt)}
-            >
-              {prompt}
-            </button>
-          ))}
-        </div>
+      {activeTab === 'chat' ? (
+        <div className="panel">
+          <div className="filter-row">
+            {[
+              'O que devo priorizar hoje?',
+              'Preciso descansar?',
+              'Como está minha agenda?',
+              'Como está meu financeiro?',
+            ].map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                className="chip"
+                onClick={() => sendMessage(prompt)}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
 
-        {messages.length > 0 && (
           <div className="coach-chat">
             {messages.map((m, idx) => (
               <div
@@ -530,112 +511,75 @@ export function TipsView({
               </div>
             ))}
             {thinking && (
-              <div className="coach-msg bot muted">
-                Analisando sua agenda, tarefas e finanças...
-              </div>
+              <div className="coach-msg bot muted">Digitando...</div>
             )}
           </div>
-        )}
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault();
-            askCoach();
-          }}
-          style={{ display: 'flex', gap: 8, marginTop: 10 }}
-        >
-          <input
-            type="text"
-            placeholder="Ex.: Estou com muita coisa hoje, o que corto primeiro?"
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            style={{
-              flex: 1,
-              border: '1px solid var(--line)',
-              background: 'var(--input-bg)',
-              borderRadius: 11,
-              padding: '10px 12px',
-              color: 'var(--text)',
-              outline: 'none',
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              sendMessage();
             }}
-          />
-          <button className="btn" type="submit" disabled={thinking}>
-            {thinking ? 'Pensando...' : 'Perguntar'}
-          </button>
-        </form>
-      </div>
-
-      {/* Filter by Pillar */}
-      <div className="filter-row" style={{ marginBottom: 16 }}>
-        {(
-          ['all', 'Agenda & Energia', 'Tarefas & Foco', 'Financeiro'] as const
-        ).map((tab) => (
-          <button
-            key={tab}
-            type="button"
-            className={`chip ${pillarFilter === tab ? 'active' : ''}`}
-            onClick={() => setPillarFilter(tab)}
+            className="coach-input-row"
           >
-            {tab === 'all' ? 'Todas as áreas' : tab}
-          </button>
-        ))}
-      </div>
+            <input
+              type="text"
+              placeholder="Pergunte qualquer coisa sobre seu dia, agenda ou gastos..."
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+            />
+            <button className="btn" type="submit" disabled={thinking}>
+              Enviar
+            </button>
+          </form>
+        </div>
+      ) : (
+        <div className="tips-grid">
+          {analysis.insights.map((item) => (
+            <div key={item.id} className={`panel tip-card tip-${item.severity}`}>
+              <div className="panel-head" style={{ marginBottom: 10 }}>
+                <span
+                  className={`tag ${
+                    item.severity === 'alert'
+                      ? 'high'
+                      : item.severity === 'warning'
+                      ? 'medium'
+                      : item.severity === 'good'
+                      ? 'low'
+                      : ''
+                  }`}
+                >
+                  {item.pillar}
+                </span>
+              </div>
 
-      {/* Structured Insights Grid */}
-      <div className="tips-grid">
-        {filteredInsights.map((item) => (
-          <div key={item.id} className={`panel tip-card tip-${item.severity}`}>
-            <div className="panel-head" style={{ marginBottom: 10 }}>
-              <span
-                className={`tag ${
-                  item.severity === 'alert'
-                    ? 'high'
-                    : item.severity === 'warning'
-                    ? 'medium'
-                    : item.severity === 'good'
-                    ? 'low'
-                    : ''
-                }`}
+              <h2 style={{ fontSize: 16, marginBottom: 8 }}>{item.title}</h2>
+              <p
+                className="muted"
+                style={{ fontSize: 13, lineHeight: 1.6, margin: '0 0 12px' }}
               >
-                {item.pillar}
-              </span>
-              <span className="muted" style={{ fontSize: 11 }}>
-                {item.severity === 'alert'
-                  ? 'Prioridade alta'
-                  : item.severity === 'warning'
-                  ? 'Atenção'
-                  : item.severity === 'good'
-                  ? 'Tudo certo'
-                  : 'Sugestão'}
-              </span>
+                {item.analysis}
+              </p>
+
+              <ul className="tip-actions-list">
+                {item.actions.map((act, i) => (
+                  <li key={i}>{act}</li>
+                ))}
+              </ul>
+
+              {item.ctaLabel && item.ctaTarget && (
+                <button
+                  type="button"
+                  className="btn secondary small"
+                  onClick={() => onNavigate(item.ctaTarget!)}
+                >
+                  {item.ctaLabel} →
+                </button>
+              )}
             </div>
-
-            <h2 style={{ fontSize: 16, marginBottom: 8 }}>{item.title}</h2>
-            <p
-              className="muted"
-              style={{ fontSize: 13, lineHeight: 1.6, margin: '0 0 12px' }}
-            >
-              {item.analysis}
-            </p>
-
-            <ul className="tip-actions-list">
-              {item.actions.map((act, i) => (
-                <li key={i}>{act}</li>
-              ))}
-            </ul>
-
-            {item.ctaLabel && item.ctaTarget && (
-              <button
-                type="button"
-                className="btn secondary small"
-                onClick={() => onNavigate(item.ctaTarget!)}
-              >
-                {item.ctaLabel} →
-              </button>
-            )}
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      )}
     </section>
   );
 }

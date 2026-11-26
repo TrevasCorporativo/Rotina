@@ -352,13 +352,22 @@ button {
   font-weight: 600;
 }
 
-.today-pill {
+.today-pill.live-datetime {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 10px;
-  padding: 8px 12px;
+  padding: 7px 12px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.live-datetime .time-part {
+  color: var(--accent);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
 }
 
 .avatar-btn {
@@ -744,10 +753,32 @@ button {
 
 .coach-chat {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   margin: 12px 0;
-  max-height: 280px;
+  max-height: 360px;
   overflow-y: auto;
+  padding-right: 4px;
+}
+
+.coach-input-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.coach-input-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+  border-radius: 11px;
+  padding: 10px 12px;
+  color: var(--text);
+  outline: none;
+}
+
+.coach-input-row input:focus {
+  border-color: var(--accent);
 }
 
 .coach-msg {
@@ -1704,11 +1735,24 @@ button {
     padding: 16px 14px 86px;
   }
   .topbar {
-    margin-bottom: 18px;
+    margin-bottom: 16px;
+    flex-wrap: wrap;
+    gap: 8px;
   }
-  .user-welcome,
-  .today-pill {
+  .today-pill.live-datetime .date-part,
+  .today-pill.live-datetime .time-sep {
     display: none;
+  }
+  .today-pill.live-datetime {
+    padding: 6px 9px;
+    font-size: 11px;
+  }
+  .coach-input-row {
+    flex-direction: column;
+  }
+  .event {
+    grid-template-columns: 44px 3px minmax(0, 1fr) auto;
+    gap: 8px;
   }
   .mobile-refresh-btn {
     display: inline-grid;

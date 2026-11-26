@@ -14,12 +14,14 @@ interface ProfileViewProps {
   profile: Profile;
   onProfileUpdated: (updated: Profile) => void;
   onToast: (msg: string) => void;
+  onLogout: () => void;
 }
 
 export function ProfileView({
   profile,
   onProfileUpdated,
   onToast,
+  onLogout,
 }: ProfileViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [displayName, setDisplayName] = useState(profile.display_name);
@@ -213,6 +215,9 @@ export function ProfileView({
             Personalize sua foto, sua senha e as notificações no celular.
           </p>
         </div>
+        <button type="button" className="btn secondary small" onClick={onLogout}>
+          Sair da conta ↗
+        </button>
       </div>
 
       <div className="content-grid">

@@ -25,7 +25,12 @@ export async function proxy(request: NextRequest) {
           );
           response = NextResponse.next({ request });
           cookiesToSet.forEach(({ name, value, options }) =>
-            response.cookies.set(name, value, options)
+            response.cookies.set(name, value, {
+              ...options,
+              maxAge: options?.maxAge ?? 60 * 60 * 24 * 365,
+              sameSite: options?.sameSite ?? 'lax',
+              path: options?.path ?? '/',
+            })
           );
         },
       },
