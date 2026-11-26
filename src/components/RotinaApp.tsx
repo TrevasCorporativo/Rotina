@@ -748,7 +748,16 @@ export function RotinaApp({
                   <div className="agenda-list">
                     {upcomingEvents.length ? (
                       upcomingEvents.map((ev) => (
-                        <div key={ev.id} className="event">
+                        <div
+                          key={ev.id}
+                          className="event"
+                          style={{ cursor: 'pointer' }}
+                          title="Clique 2x para editar"
+                          onDoubleClick={() => {
+                            setEditingEvent(ev);
+                            setModalMode('event');
+                          }}
+                        >
                           <div className="event-time">
                             {ev.event_time.slice(0, 5)}
                             <br />
@@ -927,9 +936,16 @@ export function RotinaApp({
                     className={`cell ${cell.outside ? 'out' : ''} ${
                       cell.dateStr === selectedDate ? 'selected' : ''
                     }`}
+                    title="Clique 2x para criar evento neste dia"
                     onClick={() => {
                       setSelectedDate(cell.dateStr);
                       setCurrentMonth(new Date(`${cell.dateStr}T12:00:00`));
+                    }}
+                    onDoubleClick={() => {
+                      setSelectedDate(cell.dateStr);
+                      setCurrentMonth(new Date(`${cell.dateStr}T12:00:00`));
+                      setEditingEvent(null);
+                      setModalMode('event');
                     }}
                   >
                     <div className="cell-num">{cell.dayNum}</div>
@@ -939,7 +955,16 @@ export function RotinaApp({
                       </span>
                     )}
                     {cell.dayEvents.slice(0, 2).map((ev) => (
-                      <span key={ev.id} className="event-dot">
+                      <span
+                        key={ev.id}
+                        className="event-dot"
+                        title="Clique 2x para editar este evento"
+                        onDoubleClick={(e) => {
+                          e.stopPropagation();
+                          setEditingEvent(ev);
+                          setModalMode('event');
+                        }}
+                      >
                         <strong>{ev.event_time.slice(0, 5)}</strong> {ev.title}
                       </span>
                     ))}
@@ -975,7 +1000,16 @@ export function RotinaApp({
               <div className="agenda-list">
                 {selectedDayEvents.length ? (
                   selectedDayEvents.map((ev) => (
-                    <div key={ev.id} className="event">
+                    <div
+                      key={ev.id}
+                      className="event"
+                      style={{ cursor: 'pointer' }}
+                      title="Clique 2x para editar"
+                      onDoubleClick={() => {
+                        setEditingEvent(ev);
+                        setModalMode('event');
+                      }}
+                    >
                       <div className="event-time">{ev.event_time.slice(0, 5)}</div>
                       <div className="event-bar" />
                       <div>
