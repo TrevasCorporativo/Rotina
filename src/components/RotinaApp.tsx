@@ -7,6 +7,7 @@ import { createClient } from '@/lib/supabase/client';
 import { processCopilotCommand } from '@/lib/copilot-engine';
 import { getHolidayForDate } from '@/lib/holidays';
 import { getDailyMotivation, getDailyVerse } from '@/lib/daily-messages';
+import { doesEventOccurOnDate, getNextOccurrenceDate } from '@/lib/recurrence';
 import {
   getExistingPushSubscription,
   isPushSupported,
@@ -332,10 +333,11 @@ export function RotinaApp({
       );
       showToast('Evento atualizado');
     } else {
-      const targetDates =
-        payload.event_dates.length > 0
-          ? payload.event_dates
-          : [payload.event_date];
+      const targetDates = payload.recurrence_days?.length
+        ? [payload.event_date]
+        : payload.event_dates.length > 0
+        ? payload.event_dates
+        : [payload.event_date];
       const rows = targetDates.map((d) => ({
         user_id: profile.id,
         title: payload.title,
@@ -346,6 +348,7 @@ export function RotinaApp({
         notify_enabled: true,
         notify_minutes_before: payload.notify_minutes_before,
         reminder_preset: payload.reminder_preset,
+        recurrence_days: payload.recurrence_days ?? null,
       }));
 
       const { data, error } = await supabase
@@ -359,7 +362,9 @@ export function RotinaApp({
       }
       setEvents((prev) => [...prev, ...(data as CalendarEvent[])]);
       showToast(
-        data.length > 1
+        payload.recurrence_days?.length
+          ? 'Compromisso recorrente adicionado'
+          : data.length > 1
           ? `${data.length} eventos adicionados`
           : 'Evento adicionado'
       );
@@ -412,7 +417,9 @@ export function RotinaApp({
 
   const openCount = tasks.filter((t) => !t.done).length;
   const doneCount = tasks.filter((t) => t.done).length;
-  const todayEventsCount = events.filter((e) => e.event_date === todayStr).length;
+  const todayEventsCount = events.filter((e) =>
+    doesEventOccurOnDate(e, todayStr)
+  ).length;
   const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
 
   const dashTasks = useMemo(() => {
@@ -446,7 +453,11 @@ export function RotinaApp({
 
   const upcomingEvents = useMemo(() => {
     return events
-      .filter((e) => e.event_date >= todayStr)
+      .map((e) => {
+        const nextDate = getNextOccurrenceDate(e, todayStr);
+        return nextDate ? { ...e, event_date: nextDate } : null;
+      })
+      .filter((e): e is CalendarEvent => Boolean(e))
       .sort((a, b) =>
         `${a.event_date}${a.event_time}`.localeCompare(
           `${b.event_date}${b.event_time}`
@@ -486,7 +497,7 @@ export function RotinaApp({
       const s = localDate(dt);
       const outside = n < 1 || n > days;
       const dayEvents = events
-        .filter((e) => e.event_date === s)
+        .filter((e) => doesEventOccurOnDate(e, s))
         .sort((a, b) => a.event_time.localeCompare(b.event_time));
       const holiday = getHolidayForDate(s);
       return { dateStr: s, dayNum: dt.getDate(), outside, dayEvents, holiday };
@@ -495,7 +506,7 @@ export function RotinaApp({
 
   const selectedDayEvents = useMemo(() => {
     return events
-      .filter((e) => e.event_date === selectedDate)
+      .filter((e) => doesEventOccurOnDate(e, selectedDate))
       .sort((a, b) => a.event_time.localeCompare(b.event_time));
   }, [events, selectedDate]);
 
@@ -636,9 +647,10 @@ export function RotinaApp({
     return false;
   }
 
-  function isEventOverdue(ev: CalendarEvent): boolean {
-    if (ev.event_date < todayStr) return true;
-    if (ev.event_date === todayStr) {
+  function isEventOverdue(ev: CalendarEvent, dateOverride?: string): boolean {
+    const checkDate = dateOverride ?? ev.event_date;
+    if (checkDate < todayStr) return true;
+    if (checkDate === todayStr) {
       return ev.event_time.slice(0, 5) < nowTimeStr;
     }
     return false;
@@ -1252,7 +1264,7 @@ export function RotinaApp({
                     {cell.dayEvents.slice(0, 2).map((ev) => (
                       <span
                         key={ev.id}
-                        className={`event-dot ${isEventOverdue(ev) ? 'overdue' : ''}`}
+                        className={`event-dot ${isEventOverdue(ev, cell.dateStr) ? 'overdue' : ''}`}
                         title="Clique 2x para editar este evento"
                         onDoubleClick={(e) => {
                           e.stopPropagation();
@@ -1298,7 +1310,7 @@ export function RotinaApp({
                   selectedDayEvents.map((ev) => (
                     <div
                       key={ev.id}
-                      className={`event ${isEventOverdue(ev) ? 'overdue' : ''}`}
+                      className={`event ${isEventOverdue(ev, selectedDate) ? 'overdue' : ''}`}
                       style={{ cursor: 'pointer' }}
                       title="Clique 2x para editar"
                       onDoubleClick={() => {

@@ -84,6 +84,8 @@ export interface CalendarEvent {
   notify_enabled: boolean;
   notify_minutes_before: number;
   reminder_preset?: string;
+  recurrence_days?: number[] | null;
+  last_notified_date?: string | null;
   notified_at: string | null;
   created_at: string;
   updated_at: string;

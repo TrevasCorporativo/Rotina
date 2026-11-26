@@ -432,3 +432,4 @@ export async function processCopilotCommand(
       : ''
   }Se quiser, pode pedir algo direto como: "Lança gasto de 80 no mercado" ou "Cria tarefa pagar internet amanhã".`;
 }
+

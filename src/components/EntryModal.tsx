@@ -28,6 +28,7 @@ export interface NewEventPayload {
   notify_enabled: boolean;
   notify_minutes_before: number;
   reminder_preset: string;
+  recurrence_days?: number[] | null;
 }
 
 interface EntryModalProps {
@@ -141,7 +142,9 @@ export function EntryModal({
   const [selectedDows, setSelectedDows] = useState<number[]>([
     new Date(`${defaultDate}T12:00:00`).getDay(),
   ]);
-  const [weeksCount, setWeeksCount] = useState('2');
+  const [weeksCount, setWeeksCount] = useState(
+    mode === 'event' ? 'infinite' : '2'
+  );
 
   const [saving, setSaving] = useState(false);
 
@@ -182,6 +185,9 @@ export function EntryModal({
     if (dayMode === 'custom') {
       return extraDates.length > 0 ? extraDates : date ? [date] : [];
     }
+    if (mode === 'event' && weeksCount === 'infinite') {
+      return [date || defaultDate];
+    }
     const weeks = Math.min(12, Math.max(1, Number(weeksCount) || 1));
     return buildWeekdayDates(date || defaultDate, selectedDows, weeks);
   }
@@ -211,6 +217,12 @@ export function EntryModal({
           reminder_presets: taskReminders,
         });
       } else {
+        const isInfinite =
+          !isEditing &&
+          dayMode === 'weekdays' &&
+          weeksCount === 'infinite' &&
+          selectedDows.length > 0;
+
         await onSave({
           type: 'event',
           id: editingEvent?.id,
@@ -223,6 +235,7 @@ export function EntryModal({
           notify_enabled: true,
           notify_minutes_before: minutesBefore,
           reminder_preset: preset,
+          recurrence_days: isInfinite ? selectedDows : editingEvent?.recurrence_days ?? null,
         });
       }
       onClose();
@@ -459,6 +472,9 @@ export function EntryModal({
                       onChange={(e) => setWeeksCount(e.target.value)}
                       style={{ width: 'auto', padding: '6px 10px' }}
                     >
+                      {mode === 'event' && (
+                        <option value="infinite">Sem limite (toda semana)</option>
+                      )}
                       <option value="1">1 semana</option>
                       <option value="2">2 semanas</option>
                       <option value="4">4 semanas (1 mês)</option>

@@ -141,26 +141,40 @@ async function handleDispatch(request: Request) {
   let sentDailySummaries = 0;
   let sentDailyInspirations = 0;
 
-  // 1. Dispatch due events
+  // 1. Dispatch due events (both one-off and unlimited weekly recurring)
   const { data: pendingEvents } = await admin
     .from('events')
     .select(
-      'id, user_id, title, event_date, event_time, location, notes, notify_minutes_before, reminder_preset'
+      'id, user_id, title, event_date, event_time, location, notes, notify_minutes_before, reminder_preset, recurrence_days, last_notified_date, notified_at'
     )
-    .eq('notify_enabled', true)
-    .is('notified_at', null);
+    .eq('notify_enabled', true);
 
   for (const ev of pendingEvents ?? []) {
+    const isRecurring =
+      Array.isArray(ev.recurrence_days) && ev.recurrence_days.length > 0;
+    if (!isRecurring && ev.notified_at) continue;
+
     const prof = profileMap.get(ev.user_id);
     if (prof && !prof.notify_events) continue;
     const subs = subsByUser.get(ev.user_id);
     if (!subs || subs.length === 0) continue;
 
     const tz = prof?.timezone || 'America/Sao_Paulo';
-    const { nowMs } = getLocalClock(tz);
-    const eventMs = toPseudoUtcMs(ev.event_date, ev.event_time || '09:00:00');
+    const { dateStr, nowMs } = getLocalClock(tz);
+
+    // Determine target date to evaluate
+    let targetDate = ev.event_date;
+    if (isRecurring) {
+      if (dateStr < ev.event_date) continue;
+      const dow = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
+      if (!ev.recurrence_days.includes(dow)) continue;
+      if (ev.last_notified_date === dateStr) continue;
+      targetDate = dateStr;
+    }
+
+    const eventMs = toPseudoUtcMs(targetDate, ev.event_time || '09:00:00');
     const triggerMs = computeTriggerMs(
-      ev.event_date,
+      targetDate,
       ev.event_time || '09:00:00',
       ev.reminder_preset,
       ev.notify_minutes_before ?? 15
@@ -177,13 +191,17 @@ async function handleDispatch(request: Request) {
         title: `Compromisso: ${ev.title}`,
         body: bodyParts.join(' · '),
         url: '/?view=calendar',
-        tag: `event-${ev.id}`,
+        tag: `event-${ev.id}-${targetDate}`,
       });
 
       if (delivered > 0) {
         await admin
           .from('events')
-          .update({ notified_at: new Date().toISOString() })
+          .update(
+            isRecurring
+              ? { last_notified_date: targetDate }
+              : { notified_at: new Date().toISOString() }
+          )
           .eq('id', ev.id);
         sentEvents++;
       }
@@ -277,12 +295,11 @@ async function handleDispatch(request: Request) {
       forceDaily || (hour >= 8 && prof.last_daily_summary_date !== dateStr);
 
     if (shouldSendSummary) {
-      const [{ data: todayEvents }, { data: openTasks }] = await Promise.all([
+      const [{ data: allUserEvents }, { data: openTasks }] = await Promise.all([
         admin
           .from('events')
-          .select('title, event_time')
+          .select('title, event_date, event_time, recurrence_days')
           .eq('user_id', prof.id)
-          .eq('event_date', dateStr)
           .order('event_time', { ascending: true }),
         admin
           .from('tasks')
@@ -290,6 +307,14 @@ async function handleDispatch(request: Request) {
           .eq('user_id', prof.id)
           .eq('done', false),
       ]);
+
+      const dow = new Date(`${dateStr}T12:00:00Z`).getUTCDay();
+      const todayEvents = (allUserEvents ?? []).filter((e) => {
+        if (Array.isArray(e.recurrence_days) && e.recurrence_days.length > 0) {
+          return dateStr >= e.event_date && e.recurrence_days.includes(dow);
+        }
+        return e.event_date === dateStr;
+      });
 
       const evCount = todayEvents?.length ?? 0;
       const todayTasks = (openTasks ?? []).filter((t) => t.due_date === dateStr);
