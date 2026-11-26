@@ -11,7 +11,13 @@ import {
   subscribeToPush,
 } from '@/lib/push';
 import { useTheme } from '@/lib/theme';
-import type { CalendarEvent, Profile, Task } from '@/lib/types';
+import type {
+  CalendarEvent,
+  FinanceExpense,
+  FinanceMonth,
+  Profile,
+  Task,
+} from '@/lib/types';
 import { BrandLogo } from './BrandLogo';
 import { ChangePasswordModal } from './ChangePasswordModal';
 import {
@@ -19,14 +25,17 @@ import {
   type NewEventPayload,
   type NewTaskPayload,
 } from './EntryModal';
+import { FinanceView } from './FinanceView';
 import { ProfileView } from './ProfileView';
 
-type ViewId = 'dashboard' | 'tasks' | 'calendar' | 'profile';
+type ViewId = 'dashboard' | 'tasks' | 'calendar' | 'finance' | 'profile';
 
 interface RotinaAppProps {
   initialProfile: Profile;
   initialTasks: Task[];
   initialEvents: CalendarEvent[];
+  initialFinanceMonths: FinanceMonth[];
+  initialFinanceExpenses: FinanceExpense[];
 }
 
 const FUNNY_PHRASES = [
@@ -56,6 +65,8 @@ export function RotinaApp({
   initialProfile,
   initialTasks,
   initialEvents,
+  initialFinanceMonths,
+  initialFinanceExpenses,
 }: RotinaAppProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -419,6 +430,7 @@ export function RotinaApp({
     dashboard: 'Visão geral',
     tasks: 'Minhas tarefas',
     calendar: 'Agenda',
+    finance: 'Financeiro',
     profile: 'Meu perfil',
   };
 
@@ -512,6 +524,14 @@ export function RotinaApp({
             >
               <span className="ico">▦</span>
               <span className="nav-text">Agenda</span>
+            </button>
+            <button
+              className={view === 'finance' ? 'active' : ''}
+              onClick={() => setView('finance')}
+              title="Financeiro"
+            >
+              <span className="ico">＄</span>
+              <span className="nav-text">Financeiro</span>
             </button>
           </nav>
         </div>
@@ -1078,6 +1098,15 @@ export function RotinaApp({
           </section>
         )}
 
+        {view === 'finance' && (
+          <FinanceView
+            userId={profile.id}
+            initialMonths={initialFinanceMonths}
+            initialExpenses={initialFinanceExpenses}
+            onToast={showToast}
+          />
+        )}
+
         {view === 'profile' && (
           <ProfileView
             profile={profile}
@@ -1109,6 +1138,13 @@ export function RotinaApp({
         >
           <span>▦</span>
           <small>Agenda</small>
+        </button>
+        <button
+          className={view === 'finance' ? 'active' : ''}
+          onClick={() => setView('finance')}
+        >
+          <span>＄</span>
+          <small>Financeiro</small>
         </button>
         <button
           className={view === 'profile' ? 'active' : ''}
