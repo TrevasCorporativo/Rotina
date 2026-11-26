@@ -1569,6 +1569,17 @@ button {
   display: none;
 }
 
+.site-version-footer {
+  margin-top: 28px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+  text-align: center;
+  font-size: 11px;
+  color: var(--muted);
+  opacity: 0.75;
+  letter-spacing: 0.3px;
+}
+
 .mobile-refresh-btn {
   display: none;
 }

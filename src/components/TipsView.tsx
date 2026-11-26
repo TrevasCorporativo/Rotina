@@ -137,13 +137,14 @@ function detectIncomeCategory(norm: string): string {
 function cleanTitle(raw: string, fallback: string): string {
   const cleaned = raw
     .replace(
-      /\b(lanca|lancar|adiciona|adicionar|cria|criar|coloca|colocar|registra|registrar|marca|marcar|agendar|agenda|novo|nova|um|uma|para|pra|de|do|da|no|na|em|com|por|durante|hoje|amanha|fixo|fixa|mensal|gasto|despesa|conta|receita|renda|tarefa|compromisso|evento|reais|r\$|as|às)\b/gi,
+      /\b(lan[cç][aeo]|lan[cç]ar|adicion[ae]|adicionar|cri[ae]|criar|coloc[ae]|colocar|registr[ae]|registrar|marc[ae]|marcar|agend[ae]|agendar|agenda|novo|nova|um|uma|para|pra|de|do|da|no|na|em|com|por|durante|hoje|amanh[aã]|fixo|fixa|mensal|gasto|despesa|conta|receita|renda|sal[aá]rio|tarefa|compromisso|evento|reais|r\$|as|às|alta|m[eé]dia|baixa|urgente)\b/gi,
       ' '
     )
     .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, ' ')
     .replace(/\b\d{1,2}[:h]\d{0,2}\b/gi, ' ')
     .replace(/\b\d+(?:[.,]\d{1,2})?\b/g, ' ')
-    .replace(/\b\d{1,2}\s*(?:mes|meses|x)\b/gi, ' ')
+    .replace(/\b\d{1,2}\s*(?:mes|meses|mês|x)\b/gi, ' ')
+    .replace(/[,:;!?]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -494,7 +495,7 @@ export function TipsView({
 
     // 2. Action: Create Expense
     const isCreateAction =
-      /(lanca|adiciona|cria|coloca|registra|gastei|paguei|comprei|recebi|ganhei|marca|agend|novo|nova)/.test(
+      /(lanca|lance|lanco|adiciona|adicione|cria|crie|coloca|coloque|registra|registre|gastei|paguei|comprei|recebi|ganhei|marca|marque|agend|novo|nova)/.test(
         q
       );
 

@@ -1226,6 +1226,10 @@ export function RotinaApp({
             onLogout={handleLogout}
           />
         )}
+
+        <footer className="site-version-footer">
+          Modo Sobrevivência · v1.4.0
+        </footer>
       </main>
 
       {/* Mobile Bottom Navigation */}
