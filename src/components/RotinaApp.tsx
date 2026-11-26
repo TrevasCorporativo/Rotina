@@ -507,7 +507,7 @@ export function RotinaApp({
               title="Buscar atualizações"
               aria-label="Atualizar aplicativo"
             >
-              <span className="refresh-ico">↻</span> Atualizar
+              <span className="refresh-ico">↻</span>
             </button>
             <button
               type="button"
