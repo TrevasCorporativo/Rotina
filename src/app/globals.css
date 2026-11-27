@@ -495,21 +495,32 @@ button {
 }
 
 .stats-compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 10px;
   margin-bottom: 16px;
 }
 
 .stats-compact .stat {
-  padding: 12px 14px;
+  padding: 11px 12px;
+  border-top: 3px solid var(--accent);
 }
 
 .stats-compact .stat strong {
-  font-size: 21px;
+  font-size: 20px;
   margin-top: 4px;
+  color: var(--accent);
 }
 
 .dash-head-compact {
   margin-bottom: 14px;
+  padding: 16px 20px;
+  border-radius: 18px;
+  background: var(--welcome-bg);
+  border: 1px solid var(--welcome-border);
+}
+
+.dash-head-compact h1 {
+  font-size: 24px;
 }
 
 .stat {
@@ -2100,21 +2111,58 @@ button {
     margin-bottom: 16px;
   }
   .stats-compact {
+    gap: 6px;
+    margin-bottom: 14px;
+  }
+  .stats-compact .stat {
+    padding: 9px 6px;
+    text-align: center;
+  }
+  .stats-compact .stat-top {
+    justify-content: center;
+    font-size: 10px;
+  }
+  .stats-compact .stat-icon,
+  .stats-compact .stat small {
+    display: none;
+  }
+  .stats-compact .stat strong {
+    font-size: 18px;
+    margin-top: 3px;
+  }
+  .dash-head-compact {
+    padding: 14px 16px;
+  }
+  .dash-head-compact h1 {
+    font-size: 21px;
+  }
+  .stats-compact {
+  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   gap: 10px;
   margin-bottom: 16px;
 }
 
 .stats-compact .stat {
-  padding: 12px 14px;
+  padding: 11px 12px;
+  border-top: 3px solid var(--accent);
 }
 
 .stats-compact .stat strong {
-  font-size: 21px;
+  font-size: 20px;
   margin-top: 4px;
+  color: var(--accent);
 }
 
 .dash-head-compact {
   margin-bottom: 14px;
+  padding: 16px 20px;
+  border-radius: 18px;
+  background: var(--welcome-bg);
+  border: 1px solid var(--welcome-border);
+}
+
+.dash-head-compact h1 {
+  font-size: 24px;
 }
 
 .stat {
