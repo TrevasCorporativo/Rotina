@@ -1839,7 +1839,21 @@ button {
 }
 
 .mobile-refresh-btn {
-  display: none;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--accent);
+  border-radius: 10px;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  font-weight: 700;
+}
+
+.refresh-ico {
+  font-size: 16px;
+  line-height: 1;
 }
 
 .refresh-overlay {
