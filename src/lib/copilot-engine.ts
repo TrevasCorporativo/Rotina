@@ -4,6 +4,7 @@ import type {
   FinanceExpense,
   FinanceIncome,
   Goal,
+  Note,
   Priority,
   Task,
 } from '@/lib/types';
@@ -30,11 +31,13 @@ export interface CopilotContext {
   currentMonthKey: string;
   metrics: CopilotMetrics;
   topInsightTitle?: string;
+  imageDataUrl?: string | null;
   onTaskCreated: (task: Task) => void;
   onEventCreated: (ev: CalendarEvent) => void;
   onExpensesCreated: (exps: FinanceExpense[]) => void;
   onIncomesCreated: (incs: FinanceIncome[]) => void;
   onGoalCreated?: (goal: Goal) => void;
+  onNoteCreated?: (note: Note) => void;
 }
 
 function formatBRL(v: number) {
@@ -194,11 +197,13 @@ export async function processCopilotCommand(
     currentMonthKey,
     metrics,
     topInsightTitle,
+    imageDataUrl,
     onTaskCreated,
     onEventCreated,
     onExpensesCreated,
     onIncomesCreated,
     onGoalCreated,
+    onNoteCreated,
   } = ctx;
 
   // 1. Reports
@@ -405,6 +410,54 @@ export async function processCopilotCommand(
       .split('-')
       .reverse()
       .join('/')}.`;
+  }
+
+  // 4.6 Action: Create Note ("anota", "anotação", "nota", or attached photo)
+  const isNoteIntent =
+    /\b(anot[ae]|anotar|anotac[aã]o|anotacoes|nota|notas)\b/.test(q) ||
+    Boolean(imageDataUrl);
+  if (isNoteIntent) {
+    const rawContent = promptText
+      .replace(
+        /^(?:severino[\s,:-]*)?(?:por favor[\s,:-]*)?(?:cria|criar|faz|fazer|salva|salvar|adiciona|adicionar|registra|registrar|anota|anote|anotar)?\s*(?:uma?|a)?\s*(?:nova\s+)?(?:anota[cç][aã]o|nota)?\s*(?:a[ií]|isso|aqui)?[\s,:-]*/i,
+        ''
+      )
+      .trim();
+    const noteBody = rawContent || (imageDataUrl ? 'Foto salva pelo Severino' : '');
+    const title =
+      noteBody.length > 48
+        ? `${noteBody.slice(0, 45).trim()}...`
+        : noteBody || 'Nova anotação';
+    const content = noteBody.length > 48 ? noteBody : '';
+    const category = /\b(compra|mercado|supermercado|lista)\b/.test(q)
+      ? 'Compras'
+      : /\b(ideia|projeto|app|negocio)\b/.test(q)
+      ? 'Ideias'
+      : /\b(trabalho|reuniao|cliente|servico)\b/.test(q)
+      ? 'Trabalho'
+      : /\b(pessoal|casa|familia)\b/.test(q)
+      ? 'Pessoal'
+      : 'Geral';
+
+    const { data, error } = await supabase
+      .from('notes')
+      .insert({
+        user_id: userId,
+        title,
+        content,
+        category,
+        image_url: imageDataUrl ?? null,
+        pinned: false,
+      })
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      return 'Não consegui salvar essa anotação agora. Verifique se a tabela de anotações foi criada no banco!';
+    }
+
+    onNoteCreated?.(data as Note);
+    return `Anotação salva${imageDataUrl ? ' com foto' : ''}!\n• "${title}" na categoria ${category}. Você pode vê-la em Anotações no menu lateral.`;
   }
 
   // 5. Action: Create Task (explicit "tarefa/lembrete" OR create verb with a date when not expense/income/event)

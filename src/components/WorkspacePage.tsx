@@ -20,6 +20,7 @@ async function WorkspaceLoader({ initialView }: { initialView: ViewId }) {
       initialFinanceExpenses={data.financeExpenses}
       initialFinanceIncomes={data.financeIncomes}
       initialGoals={data.goals}
+      initialNotes={data.notes}
     />
   );
 }

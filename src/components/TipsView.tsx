@@ -5,21 +5,25 @@ import {
   BarChart3,
   Calendar,
   CheckSquare,
+  ImagePlus,
   Mic,
   Sparkles,
   Square,
   Wallet,
+  X,
 } from 'lucide-react';
 import {
   processCopilotCommand,
   type CopilotMetrics,
 } from '@/lib/copilot-engine';
+import { compressImageFile } from '@/lib/image-utils';
 import type {
   CalendarEvent,
   FinanceExpense,
   FinanceIncome,
   FinanceMonth,
   Goal,
+  Note,
   Task,
 } from '@/lib/types';
 
@@ -38,6 +42,7 @@ interface TipsViewProps {
   onExpensesCreated: (exps: FinanceExpense[]) => void;
   onIncomesCreated: (incs: FinanceIncome[]) => void;
   onGoalCreated: (goal: Goal) => void;
+  onNoteCreated: (note: Note) => void;
   onNavigate: (view: 'tasks' | 'calendar' | 'finance') => void;
 }
 
@@ -55,6 +60,7 @@ interface CoachInsight {
 interface ChatMessage {
   role: 'assistant' | 'user';
   text: string;
+  imageUrl?: string | null;
 }
 
 function formatBRL(v: number) {
@@ -85,6 +91,7 @@ export function TipsView({
   onExpensesCreated,
   onIncomesCreated,
   onGoalCreated,
+  onNoteCreated,
   onNavigate,
 }: TipsViewProps) {
   const firstName = displayName.split(' ')[0] || 'Você';
@@ -92,12 +99,14 @@ export function TipsView({
 
   const [activeTab, setActiveTab] = useState<'chat' | 'diagnosis'>('chat');
   const [question, setQuestion] = useState('');
+  const [attachedImage, setAttachedImage] = useState<string | null>(null);
   const [thinking, setThinking] = useState(false);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [listening, setListening] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState('');
   const recognitionRef = useRef<{ stop: () => void } | null>(null);
   const finalTranscriptRef = useRef('');
+  const photoInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     const w = window as unknown as {
@@ -357,16 +366,32 @@ export function TipsView({
   const [messages, setMessages] = useState<ChatMessage[]>(() => [
     {
       role: 'assistant',
-      text: `Olá, ${firstName}! Eu sou o Severino, seu mordomo digital da vida adulta.\n\nPode digitar ou tocar no microfone para me pedir:\n• "Lança um gasto de 150 de internet fixo"\n• "Recebi 500 de freela"\n• "Cria uma tarefa pagar boleto amanhã às 10h"\n• "Marca na agenda dentista amanhã às 15h"\n• "Me dá um relatório financeiro"`,
+      text: `Olá, ${firstName}! Eu sou o Severino, seu mordomo digital da vida adulta.\n\nPode digitar, tocar no microfone ou anexar uma foto para me pedir:\n• "Lança um gasto de 150 de internet fixo"\n• "Recebi 500 de freela"\n• "Cria uma tarefa pagar boleto amanhã às 10h"\n• "Anota aí: comprar filtro de café" (ou anexe uma foto)\n• "Cria uma meta correr no parque sábado"`,
     },
   ]);
 
+  async function handlePhotoPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const compressed = await compressImageFile(file);
+      setAttachedImage(compressed);
+    } catch {
+      // ignore invalid image
+    } finally {
+      e.target.value = '';
+    }
+  }
+
   async function sendMessage(customPrompt?: string) {
-    const text = (customPrompt ?? question).trim();
-    if (!text || thinking) return;
+    const rawText = (customPrompt ?? question).trim();
+    const imgToSend = customPrompt ? null : attachedImage;
+    if ((!rawText && !imgToSend) || thinking) return;
+    const text = rawText || 'Anotação com foto';
 
     setQuestion('');
-    setMessages((prev) => [...prev, { role: 'user', text }]);
+    if (!customPrompt) setAttachedImage(null);
+    setMessages((prev) => [...prev, { role: 'user', text, imageUrl: imgToSend }]);
     setThinking(true);
 
     const [reply] = await Promise.all([
@@ -377,11 +402,13 @@ export function TipsView({
         currentMonthKey,
         metrics: analysis.metrics,
         topInsightTitle: analysis.insights[0]?.title,
+        imageDataUrl: imgToSend,
         onTaskCreated,
         onEventCreated,
         onExpensesCreated,
         onIncomesCreated,
         onGoalCreated,
+        onNoteCreated,
       }),
       new Promise((r) => setTimeout(r, 300)),
     ]);
@@ -542,6 +569,21 @@ export function TipsView({
                 key={idx}
                 className={`coach-msg ${m.role === 'user' ? 'user' : 'bot'}`}
               >
+                {m.imageUrl && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={m.imageUrl}
+                    alt="Anexo"
+                    style={{
+                      display: 'block',
+                      maxWidth: 200,
+                      maxHeight: 160,
+                      borderRadius: 10,
+                      marginBottom: 6,
+                      objectFit: 'cover',
+                    }}
+                  />
+                )}
                 {m.text}
               </div>
             ))}
@@ -549,6 +591,38 @@ export function TipsView({
               <div className="coach-msg bot muted">Severino está executando...</div>
             )}
           </div>
+
+          {attachedImage && (
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                marginBottom: 8,
+                padding: '6px 10px',
+                borderRadius: 12,
+                background: 'var(--bg-elev)',
+                border: '1px solid var(--border)',
+                width: 'fit-content',
+              }}
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={attachedImage}
+                alt="Foto anexada"
+                style={{ width: 38, height: 38, borderRadius: 8, objectFit: 'cover' }}
+              />
+              <span style={{ fontSize: 12 }}>Foto pronta para anotar</span>
+              <button
+                type="button"
+                className="close"
+                onClick={() => setAttachedImage(null)}
+                title="Remover foto"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          )}
 
           <form
             onSubmit={(e) => {
@@ -558,11 +632,27 @@ export function TipsView({
             className="coach-input-row"
           >
             <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              style={{ display: 'none' }}
+              onChange={handlePhotoPick}
+            />
+            <input
               type="text"
-              placeholder="Fale ou digite seu pedido para o Severino..."
+              placeholder="Fale, digite ou anexe uma foto para o Severino..."
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
             />
+            <button
+              type="button"
+              className="btn secondary mic-btn"
+              onClick={() => photoInputRef.current?.click()}
+              title="Anexar foto para anotação"
+              aria-label="Anexar foto"
+            >
+              <ImagePlus size={17} />
+            </button>
             {speechSupported && (
               <button
                 type="button"

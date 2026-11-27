@@ -20,6 +20,7 @@ import type {
   FinanceIncome,
   FinanceMonth,
   Goal,
+  Note,
   Profile,
   Task,
 } from '@/lib/types';
@@ -32,6 +33,7 @@ import {
 } from './EntryModal';
 import { FinanceView } from './FinanceView';
 import { GoalsView } from './GoalsView';
+import { NotesView } from './NotesView';
 import { ProfileView } from './ProfileView';
 import { TipsView } from './TipsView';
 
@@ -40,6 +42,7 @@ export type ViewId =
   | 'tasks'
   | 'calendar'
   | 'goals'
+  | 'notes'
   | 'finance'
   | 'tips'
   | 'profile';
@@ -49,6 +52,7 @@ const VIEW_PATHS: Record<ViewId, string> = {
   tasks: '/tarefas',
   calendar: '/agenda',
   goals: '/metas',
+  notes: '/anotacoes',
   finance: '/financeiro',
   tips: '/severino',
   profile: '/perfil',
@@ -63,6 +67,7 @@ interface RotinaAppProps {
   initialFinanceExpenses: FinanceExpense[];
   initialFinanceIncomes: FinanceIncome[];
   initialGoals: Goal[];
+  initialNotes: Note[];
 }
 
 function localDate(d: Date): string {
@@ -103,6 +108,7 @@ export function RotinaApp({
   initialFinanceExpenses,
   initialFinanceIncomes,
   initialGoals,
+  initialNotes,
 }: RotinaAppProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -110,6 +116,7 @@ export function RotinaApp({
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
+  const [notes, setNotes] = useState<Note[]>(initialNotes);
   const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(
     initialFinanceExpenses
   );
@@ -213,7 +220,15 @@ export function RotinaApp({
 
     const params = new URLSearchParams(window.location.search);
     const v = params.get('view');
-    if (v === 'tasks' || v === 'calendar' || v === 'goals' || v === 'finance' || v === 'tips' || v === 'profile') {
+    if (
+      v === 'tasks' ||
+      v === 'calendar' ||
+      v === 'goals' ||
+      v === 'notes' ||
+      v === 'finance' ||
+      v === 'tips' ||
+      v === 'profile'
+    ) {
       queueMicrotask(() => setViewState(v));
     }
 
@@ -510,22 +525,121 @@ export function RotinaApp({
   ).length;
   const doneGoalsCount = goals.filter((g) => g.done).length;
 
-  const dashTasks = useMemo(() => {
-    return tasks
-      .filter((t) =>
-        dashFilter === 'all'
-          ? true
-          : dashFilter === 'today'
-          ? t.due_date === todayStr
-          : !t.done
-      )
-      .sort(
-        (a, b) =>
-          Number(a.done) - Number(b.done) ||
-          (a.priority === 'high' ? -1 : b.priority === 'high' ? 1 : 0)
-      )
-      .slice(0, 6);
-  }, [tasks, dashFilter, todayStr]);
+  const priorityItems = useMemo(() => {
+    const todayMs = new Date(`${todayStr}T12:00:00`).getTime();
+    const diffDays = (d: string | null) =>
+      d ? Math.round((new Date(`${d}T12:00:00`).getTime() - todayMs) / 86400000) : null;
+
+    type PriorityKind = 'finance' | 'task' | 'event' | 'goal';
+    interface PriorityEntry {
+      key: string;
+      kind: PriorityKind;
+      title: string;
+      subtitle: string;
+      dateStr: string | null;
+      timeStr: string | null;
+      days: number | null;
+      urgencyRank: number;
+      task?: Task;
+      expense?: FinanceExpense;
+      event?: CalendarEvent;
+      goal?: Goal;
+    }
+
+    const entries: PriorityEntry[] = [];
+
+    // 1. Finance expenses due in current month (unpaid)
+    for (const exp of financeExpenses) {
+      if (exp.paid || exp.month_key !== currentMonthKey || !exp.due_day) continue;
+      const dateStr = `${currentMonthKey}-${String(exp.due_day).padStart(2, '0')}`;
+      const days = diffDays(dateStr);
+      if (days !== null && days > 10) continue;
+      entries.push({
+        key: `fin-${exp.id}`,
+        kind: 'finance',
+        title: exp.title,
+        subtitle: `R$ ${Number(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`,
+        dateStr,
+        timeStr: null,
+        days,
+        urgencyRank: days !== null && days <= 0 ? 0 : 1,
+        expense: exp,
+      });
+    }
+
+    // 2. Open tasks
+    for (const t of tasks) {
+      if (t.done) continue;
+      const days = diffDays(t.due_date);
+      entries.push({
+        key: `task-${t.id}`,
+        kind: 'task',
+        title: t.title,
+        subtitle: t.category || 'Tarefa',
+        dateStr: t.due_date,
+        timeStr: t.due_time ? t.due_time.slice(0, 5) : null,
+        days,
+        urgencyRank:
+          days !== null && days <= 0 ? (t.priority === 'high' ? 0 : 1) : t.priority === 'high' ? 2 : 3,
+        task: t,
+      });
+    }
+
+    // 3. Calendar events (today or next 10 days)
+    for (const ev of events) {
+      const nextDate = getNextOccurrenceDate(ev, todayStr);
+      if (!nextDate) continue;
+      const days = diffDays(nextDate);
+      if (days === null || days > 10) continue;
+      if (days === 0 && ev.event_time.slice(0, 5) < nowTimeStr) continue;
+      entries.push({
+        key: `ev-${ev.id}-${nextDate}`,
+        kind: 'event',
+        title: ev.title,
+        subtitle: ev.location || ev.category || 'Agenda',
+        dateStr: nextDate,
+        timeStr: ev.event_time.slice(0, 5),
+        days,
+        urgencyRank: days === 0 ? 0 : 2,
+        event: { ...ev, event_date: nextDate },
+      });
+    }
+
+    // 4. Open goals (prioritizing <= 10 days)
+    for (const g of goals) {
+      if (g.done) continue;
+      const days = diffDays(g.target_date);
+      entries.push({
+        key: `goal-${g.id}`,
+        kind: 'goal',
+        title: g.title,
+        subtitle: `${g.category} • ${g.progress}%`,
+        dateStr: g.target_date,
+        timeStr: null,
+        days,
+        urgencyRank: days !== null && days <= 10 ? 1 : 4,
+        goal: g,
+      });
+    }
+
+    return entries
+      .filter((item) => {
+        if (dashFilter === 'today') return item.days !== null && item.days <= 0;
+        if (dashFilter === 'open') return item.days !== null && item.days <= 10;
+        return true;
+      })
+      .sort((a, b) => {
+        const aBucket =
+          a.days === null ? 3 : a.days < 0 ? 0 : a.days === 0 ? 1 : a.days <= 10 ? 2 : 3;
+        const bBucket =
+          b.days === null ? 3 : b.days < 0 ? 0 : b.days === 0 ? 1 : b.days <= 10 ? 2 : 3;
+        if (aBucket !== bBucket) return aBucket - bBucket;
+        if (a.days !== null && b.days !== null && a.days !== b.days) return a.days - b.days;
+        if (a.urgencyRank !== b.urgencyRank) return a.urgencyRank - b.urgencyRank;
+        return (a.timeStr || '99:99').localeCompare(b.timeStr || '99:99');
+      })
+      .slice(0, 7);
+  }, [tasks, events, financeExpenses, goals, currentMonthKey, todayStr, nowTimeStr, dashFilter]);
 
   const allFilteredTasks = useMemo(() => {
     return tasks
@@ -539,34 +653,86 @@ export function RotinaApp({
       );
   }, [tasks, taskFilter]);
 
-  const upcomingEvents = useMemo(() => {
+  const upcomingFeed = useMemo(() => {
     const tomorrow = new Date(`${todayStr}T12:00:00`);
     tomorrow.setDate(tomorrow.getDate() + 1);
     const tomorrowStr = localDate(tomorrow);
+    const todayMs = new Date(`${todayStr}T12:00:00`).getTime();
 
-    return events
-      .map((e) => {
-        const startFrom =
-          e.event_date === todayStr && e.event_time.slice(0, 5) < nowTimeStr
-            ? tomorrowStr
-            : e.recurrence_days?.length && e.event_time.slice(0, 5) < nowTimeStr
-            ? tomorrowStr
-            : todayStr;
-        const nextDate = getNextOccurrenceDate(e, startFrom);
-        if (!nextDate) return null;
-        if (nextDate === todayStr && e.event_time.slice(0, 5) < nowTimeStr) {
-          return null;
-        }
-        return { ...e, event_date: nextDate };
-      })
-      .filter((e): e is CalendarEvent => Boolean(e))
-      .sort((a, b) =>
-        `${a.event_date}${a.event_time}`.localeCompare(
-          `${b.event_date}${b.event_time}`
-        )
-      )
-      .slice(0, 4);
-  }, [events, todayStr, nowTimeStr]);
+    type FeedItem =
+      | { kind: 'event'; key: string; dateStr: string; timeLabel: string; sortTime: string; title: string; sub: string; overdue: boolean; event: CalendarEvent }
+      | { kind: 'goal'; key: string; dateStr: string; timeLabel: string; sortTime: string; title: string; sub: string; overdue: boolean; goal: Goal }
+      | { kind: 'finance'; key: string; dateStr: string; timeLabel: string; sortTime: string; title: string; sub: string; overdue: boolean; expense: FinanceExpense };
+
+    const items: FeedItem[] = [];
+
+    for (const e of events) {
+      const startFrom =
+        e.event_date === todayStr && e.event_time.slice(0, 5) < nowTimeStr
+          ? tomorrowStr
+          : e.recurrence_days?.length && e.event_time.slice(0, 5) < nowTimeStr
+          ? tomorrowStr
+          : todayStr;
+      const nextDate = getNextOccurrenceDate(e, startFrom);
+      if (!nextDate) continue;
+      if (nextDate === todayStr && e.event_time.slice(0, 5) < nowTimeStr) continue;
+      const ev = { ...e, event_date: nextDate };
+      items.push({
+        kind: 'event',
+        key: `ev-${ev.id}-${nextDate}`,
+        dateStr: nextDate,
+        timeLabel: ev.event_time.slice(0, 5),
+        sortTime: ev.event_time.slice(0, 5),
+        title: ev.title,
+        sub: ev.location || ev.category || 'Compromisso',
+        overdue: isEventOverdue(ev),
+        event: ev,
+      });
+    }
+
+    for (const g of goals) {
+      if (g.done || !g.target_date) continue;
+      const diff = Math.round(
+        (new Date(`${g.target_date}T12:00:00`).getTime() - todayMs) / 86400000
+      );
+      if (diff > 10) continue;
+      items.push({
+        kind: 'goal',
+        key: `goal-${g.id}`,
+        dateStr: g.target_date,
+        timeLabel: 'Meta',
+        sortTime: '23:58',
+        title: g.title,
+        sub: `${g.category} • ${g.progress}% concluído`,
+        overdue: diff < 0,
+        goal: g,
+      });
+    }
+
+    for (const exp of financeExpenses) {
+      if (exp.paid || exp.month_key !== currentMonthKey || !exp.due_day) continue;
+      const dateStr = `${currentMonthKey}-${String(exp.due_day).padStart(2, '0')}`;
+      const diff = Math.round(
+        (new Date(`${dateStr}T12:00:00`).getTime() - todayMs) / 86400000
+      );
+      if (diff > 10) continue;
+      items.push({
+        kind: 'finance',
+        key: `fin-${exp.id}`,
+        dateStr,
+        timeLabel: 'Conta',
+        sortTime: '08:00',
+        title: exp.title,
+        sub: `R$ ${Number(exp.amount).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • ${exp.category}`,
+        overdue: diff < 0,
+        expense: exp,
+      });
+    }
+
+    return items
+      .sort((a, b) => `${a.dateStr}${a.sortTime}`.localeCompare(`${b.dateStr}${b.sortTime}`))
+      .slice(0, 5);
+  }, [events, goals, financeExpenses, currentMonthKey, todayStr, nowTimeStr]);
 
   const weekDays = useMemo(() => {
     const d = new Date();
@@ -628,6 +794,7 @@ export function RotinaApp({
     tasks: 'Minhas tarefas',
     calendar: 'Agenda',
     goals: 'Metas',
+    notes: 'Anotações',
     finance: 'Financeiro',
     tips: 'Severino',
     profile: 'Meu perfil',
@@ -893,6 +1060,14 @@ export function RotinaApp({
               <span className="nav-text">Metas</span>
             </button>
             <button
+              className={view === 'notes' ? 'active' : ''}
+              onClick={() => setView('notes')}
+              title="Anotações"
+            >
+              <span className="ico">✎</span>
+              <span className="nav-text">Anotações</span>
+            </button>
+            <button
               className={view === 'finance' ? 'active' : ''}
               onClick={() => setView('finance')}
               title="Financeiro"
@@ -1149,7 +1324,7 @@ export function RotinaApp({
                     className="btn secondary small"
                     onClick={() => setView('tasks')}
                   >
-                    Ver todas
+                    Ver tarefas
                   </button>
                 </div>
                 <div className="filter-row">
@@ -1157,7 +1332,7 @@ export function RotinaApp({
                     className={`chip ${dashFilter === 'all' ? 'active' : ''}`}
                     onClick={() => setDashFilter('all')}
                   >
-                    Todas
+                    Tudo
                   </button>
                   <button
                     className={`chip ${dashFilter === 'today' ? 'active' : ''}`}
@@ -1169,21 +1344,103 @@ export function RotinaApp({
                     className={`chip ${dashFilter === 'open' ? 'active' : ''}`}
                     onClick={() => setDashFilter('open')}
                   >
-                    Em aberto
+                    Próx. 10 dias
                   </button>
                 </div>
                 <div className="task-list">
-                  {dashTasks.length ? (
-                    dashTasks.map(renderTaskItem)
+                  {priorityItems.length ? (
+                    priorityItems.map((item) => {
+                      const typeLabel =
+                        item.kind === 'finance'
+                          ? 'Finanças'
+                          : item.kind === 'event'
+                          ? 'Agenda'
+                          : item.kind === 'goal'
+                          ? 'Meta'
+                          : 'Tarefa';
+                      const whenLabel =
+                        item.days === null
+                          ? 'Sem prazo'
+                          : item.days < 0
+                          ? `Atrasado (${Math.abs(item.days)}d)`
+                          : item.days === 0
+                          ? item.timeStr
+                            ? `Hoje • ${item.timeStr}`
+                            : 'Hoje'
+                          : item.days === 1
+                          ? item.timeStr
+                            ? `Amanhã • ${item.timeStr}`
+                            : 'Amanhã'
+                          : `Em ${item.days}d`;
+                      const isUrgent = item.days !== null && item.days <= 0;
+                      return (
+                        <div
+                          key={item.key}
+                          className="task"
+                          style={{ cursor: 'pointer' }}
+                          onClick={() => {
+                            if (item.kind === 'task' && item.task) {
+                              setEditingTask(item.task);
+                              setModalMode('task');
+                            } else if (item.kind === 'event' && item.event) {
+                              setEditingEvent(item.event);
+                              setModalMode('event');
+                            } else if (item.kind === 'finance') {
+                              setView('finance');
+                            } else if (item.kind === 'goal') {
+                              setView('goals');
+                            }
+                          }}
+                        >
+                          {item.kind === 'task' && item.task ? (
+                            <input
+                              type="checkbox"
+                              className="check"
+                              checked={item.task.done}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={() => toggleTask(item.task!)}
+                            />
+                          ) : (
+                            <span
+                              className={`prio-kind-dot kind-${item.kind}`}
+                              aria-hidden="true"
+                            >
+                              {item.kind === 'finance'
+                                ? '$'
+                                : item.kind === 'event'
+                                ? '◷'
+                                : '◎'}
+                            </span>
+                          )}
+                          <div>
+                            <div className="task-title">{item.title}</div>
+                            <div className="task-meta">
+                              <span className={`tag kind-tag-${item.kind}`}>
+                                {typeLabel}
+                              </span>
+                              <span
+                                className={`tag ${isUrgent ? 'high' : 'low'}`}
+                              >
+                                {whenLabel}
+                              </span>
+                              <span>{item.subtitle}</span>
+                            </div>
+                          </div>
+                          <span className="muted" style={{ fontSize: 13 }}>
+                            ›
+                          </span>
+                        </div>
+                      );
+                    })
                   ) : (
                     <div className="empty">
-                      Tudo em dia. Que tal adicionar uma tarefa?
+                      Tudo em dia! Nenhuma pendência urgente por aqui.
                     </div>
                   )}
                 </div>
                 <div className="progress-wrap">
                   <div className="progress-label">
-                    <span>Progresso geral</span>
+                    <span>Progresso geral (tarefas)</span>
                     <strong>{pct}%</strong>
                   </div>
                   <div className="progress">
@@ -1204,40 +1461,52 @@ export function RotinaApp({
                     </button>
                   </div>
                   <div className="agenda-list">
-                    {upcomingEvents.length ? (
-                      upcomingEvents.map((ev) => (
+                    {upcomingFeed.length ? (
+                      upcomingFeed.map((item) => (
                         <div
-                          key={ev.id}
-                          className={`event ${isEventOverdue(ev) ? 'overdue' : ''}`}
+                          key={item.key}
+                          className={`event ${item.overdue ? 'overdue' : ''}`}
                           style={{ cursor: 'pointer' }}
-                          title="Clique 2x para editar"
-                          onDoubleClick={() => {
-                            setEditingEvent(ev);
-                            setModalMode('event');
+                          onClick={() => {
+                            if (item.kind === 'event') {
+                              setEditingEvent(item.event);
+                              setModalMode('event');
+                            } else if (item.kind === 'goal') {
+                              setView('goals');
+                            } else {
+                              setView('finance');
+                            }
                           }}
                         >
                           <div className="event-time">
-                            <strong>{ev.event_time.slice(0, 5)}</strong>
+                            <strong>{item.timeLabel}</strong>
                             <br />
-                            {fmtUpcomingDay(ev.event_date, todayStr)}
+                            {fmtUpcomingDay(item.dateStr, todayStr)}
                           </div>
-                          <div className="event-bar" />
+                          <div className={`event-bar kind-${item.kind}`} />
                           <div>
-                            <div className="event-title">{ev.title}</div>
-                            <div className="event-sub">
-                              {ev.location || ev.category || 'Compromisso'}
-                            </div>
-                            {ev.notes && <div className="event-notes">{ev.notes}</div>}
+                            <div className="event-title">{item.title}</div>
+                            <div className="event-sub">{item.sub}</div>
+                            {item.kind === 'event' && item.event.notes && (
+                              <div className="event-notes">{item.event.notes}</div>
+                            )}
                           </div>
                           <button
                             className="event-edit"
-                            title="Editar evento"
-                            onClick={() => {
-                              setEditingEvent(ev);
-                              setModalMode('event');
+                            title={item.kind === 'event' ? 'Editar evento' : 'Abrir'}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (item.kind === 'event') {
+                                setEditingEvent(item.event);
+                                setModalMode('event');
+                              } else if (item.kind === 'goal') {
+                                setView('goals');
+                              } else {
+                                setView('finance');
+                              }
                             }}
                           >
-                            ✎
+                            {item.kind === 'event' ? '✎' : '›'}
                           </button>
                         </div>
                       ))
@@ -1551,6 +1820,15 @@ export function RotinaApp({
           />
         )}
 
+        {view === 'notes' && (
+          <NotesView
+            userId={profile.id}
+            notes={notes}
+            onNotesChange={setNotes}
+            onToast={showToast}
+          />
+        )}
+
         {view === 'finance' && (
           <FinanceView
             userId={profile.id}
@@ -1583,6 +1861,7 @@ export function RotinaApp({
               setFinanceIncomes((prev) => [...prev, ...incs])
             }
             onGoalCreated={(goal) => setGoals((prev) => [goal, ...prev])}
+            onNoteCreated={(note) => setNotes((prev) => [note, ...prev])}
             onNavigate={(target) => setView(target)}
           />
         )}

@@ -5,6 +5,7 @@ import type {
   FinanceIncome,
   FinanceMonth,
   Goal,
+  Note,
   Profile,
   Task,
 } from '@/lib/types';
@@ -17,6 +18,7 @@ export interface WorkspaceData {
   financeExpenses: FinanceExpense[];
   financeIncomes: FinanceIncome[];
   goals: Goal[];
+  notes: Note[];
 }
 
 export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
@@ -35,6 +37,7 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     { data: financeExpenses },
     { data: financeIncomes },
     { data: goals },
+    { data: notes },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase
@@ -59,6 +62,11 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
       .from('goals')
       .select('*')
       .order('target_date', { ascending: true }),
+    supabase
+      .from('notes')
+      .select('*')
+      .order('pinned', { ascending: false })
+      .order('created_at', { ascending: false }),
   ]);
 
   if (!profile) return null;
@@ -71,6 +79,7 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     financeExpenses: (financeExpenses ?? []) as FinanceExpense[],
     financeIncomes: (financeIncomes ?? []) as FinanceIncome[],
     goals: (goals ?? []) as Goal[],
+    notes: (notes ?? []) as Note[],
   };
 }
 
