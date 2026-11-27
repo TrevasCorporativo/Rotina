@@ -187,10 +187,6 @@ export function RotinaApp({
     progress: number;
   }>({ open: false, step: '', progress: 0 });
 
-  const [phrase] = useState(
-    () => FUNNY_PHRASES[Math.floor(Math.random() * FUNNY_PHRASES.length)]
-  );
-
   const hr = new Date().getHours();
   const greeting = hr < 12 ? 'Bom dia!' : hr < 18 ? 'Boa tarde!' : 'Boa noite!';
   const todayLabel = new Date().toLocaleDateString('pt-BR', {
@@ -529,10 +525,24 @@ export function RotinaApp({
   }, [tasks, taskFilter]);
 
   const upcomingEvents = useMemo(() => {
+    const tomorrow = new Date(`${todayStr}T12:00:00`);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowStr = localDate(tomorrow);
+
     return events
       .map((e) => {
-        const nextDate = getNextOccurrenceDate(e, todayStr);
-        return nextDate ? { ...e, event_date: nextDate } : null;
+        const startFrom =
+          e.event_date === todayStr && e.event_time.slice(0, 5) < nowTimeStr
+            ? tomorrowStr
+            : e.recurrence_days?.length && e.event_time.slice(0, 5) < nowTimeStr
+            ? tomorrowStr
+            : todayStr;
+        const nextDate = getNextOccurrenceDate(e, startFrom);
+        if (!nextDate) return null;
+        if (nextDate === todayStr && e.event_time.slice(0, 5) < nowTimeStr) {
+          return null;
+        }
+        return { ...e, event_date: nextDate };
       })
       .filter((e): e is CalendarEvent => Boolean(e))
       .sort((a, b) =>
@@ -541,7 +551,7 @@ export function RotinaApp({
         )
       )
       .slice(0, 4);
-  }, [events, todayStr]);
+  }, [events, todayStr, nowTimeStr]);
 
   const weekDays = useMemo(() => {
     const d = new Date();
@@ -996,11 +1006,11 @@ export function RotinaApp({
           <section>
             <div className="page-head dash-head-compact">
               <div>
-                <div className="eyebrow">
+                <div className="eyebrow">SEU DIA EM FOCO</div>
+                <h2 className="dash-greeting">
                   {greeting} {profile.display_name.split(' ')[0]}
-                </div>
-                <h1>Visão geral</h1>
-                <p className="subtitle">{phrase}</p>
+                </h2>
+                <p className="subtitle">{dailyMotivation}</p>
               </div>
               <button
                 className="btn dashboard-head-btn"
@@ -1020,7 +1030,7 @@ export function RotinaApp({
                   Abertas <span className="stat-icon">☑</span>
                 </div>
                 <strong>{openCount}</strong>
-                <small>Para resolver</small>
+                <small>Pendentes</small>
               </div>
               <div className="stat">
                 <div className="stat-top">
@@ -1033,11 +1043,11 @@ export function RotinaApp({
                   </span>
                 </div>
                 <strong>{doneCount}</strong>
-                <small>Feitas</small>
+                <small>Avanços</small>
               </div>
               <div className="stat">
                 <div className="stat-top">
-                  Agenda hoje{' '}
+                  Agenda{' '}
                   <span
                     className="stat-icon"
                     style={{ background: 'rgba(223, 147, 66, 0.14)', color: 'var(--orange)' }}
@@ -1046,7 +1056,7 @@ export function RotinaApp({
                   </span>
                 </div>
                 <strong>{todayEventsCount}</strong>
-                <small>Compromissos</small>
+                <small>Hoje</small>
               </div>
               <div className="stat">
                 <div className="stat-top">
