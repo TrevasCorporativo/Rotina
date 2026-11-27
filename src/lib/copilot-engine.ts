@@ -155,11 +155,11 @@ function cleanTitle(raw: string, fallback: string): string {
     .replace(/\b\d{1,2}[:h]\d{0,2}\b/gi, ' ')
     .replace(/(?:r\$\s*)?\d+(?:[.,]\d{1,2})?/gi, ' ')
     .replace(/\b\d{1,2}\s*(?:mes|meses|mês|x)\b/gi, ' ')
+    .replace(/[,:;!?\-–—]+/g, ' ')
     .replace(
-      /\b(severino|lan[cç][aeo]|lan[cç]ar|adicion[ae]|adicionar|cri[ae]|criar|coloc[ae]|colocar|registr[ae]|registrar|marc[ae]|marcar|agend[ae]|agendar|agenda|novo|nova|um|uma|para|pra|pro|de|do|da|dos|das|no|na|nos|nas|em|com|por|durante|hoje|amanh[aã]|depois|esse|essa|este|esta|pr[oó]xim[ao]|que|é|domingo|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|feira|fixo|fixa|mensal|gasto|despesa|conta|receita|renda|sal[aá]rio|tarefa|compromisso|evento|meta|reais|r\$|as|às|aos|data|dia|hora|hor[aá]rio|valor|vencimento|categoria|prioridade|alta|m[eé]dia|baixa|urgente|local|obs|observa[cç][aã]o)\b/gi,
+      /(?:^|\s)(severino|lan[cç][aeo]|lan[cç]ar|adicion[ae]|adicionar|cri[ae]|criar|coloc[ae]|colocar|registr[ae]|registrar|marc[ae]|marcar|agend[ae]|agendar|agenda|novo|nova|um|uma|para|pra|pro|de|do|da|dos|das|no|na|nos|nas|em|com|por|durante|hoje|amanh[aã]|depois|esse|essa|este|esta|pr[oó]xim[ao]|que|[eé]|domingo|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|feira|fixo|fixa|mensal|gasto|despesa|conta|receita|renda|sal[aá]rio|tarefa|compromisso|evento|meta|reais|r\$|as|às|aos|data|dia|hora|hor[aá]rio|valor|vencimento|categoria|prioridade|alta|m[eé]dia|baixa|urgente|local|obs|observa[cç][aã]o)(?=\s|$)/gi,
       ' '
     )
-    .replace(/[,:;!?\-–—]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
