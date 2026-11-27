@@ -681,6 +681,11 @@ export function RotinaApp({
   const todayEventsCount = events.filter((e) =>
     doesEventOccurOnDate(e, todayStr)
   ).length;
+  const currentMonthKey = todayStr.slice(0, 7);
+  const todayDay = Number(todayStr.slice(8, 10));
+  const billsDueTodayCount = financeExpenses.filter(
+    (e) => !e.paid && e.month_key === currentMonthKey && e.due_day === todayDay
+  ).length;
   const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
 
   const dashTasks = useMemo(() => {
@@ -1214,7 +1219,19 @@ export function RotinaApp({
             </div>
 
             <div className="stats stats-compact">
-              <div className="stat">
+              <div
+                className="stat"
+                role="button"
+                tabIndex={0}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setView('tasks')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setView('tasks');
+                  }
+                }}
+              >
                 <div className="stat-top">
                   <span className="stat-label">Abertas</span>
                   <span className="stat-icon">☑</span>
@@ -1222,20 +1239,19 @@ export function RotinaApp({
                 <strong>{openCount}</strong>
                 <small>Pendentes</small>
               </div>
-              <div className="stat">
-                <div className="stat-top">
-                  <span className="stat-label">Concluídas</span>
-                  <span
-                    className="stat-icon"
-                    style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
-                  >
-                    ✓
-                  </span>
-                </div>
-                <strong>{doneCount}</strong>
-                <small>Avanços</small>
-              </div>
-              <div className="stat">
+              <div
+                className="stat"
+                role="button"
+                tabIndex={0}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setView('calendar')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setView('calendar');
+                  }
+                }}
+              >
                 <div className="stat-top">
                   <span className="stat-label">Agenda</span>
                   <span
@@ -1248,7 +1264,44 @@ export function RotinaApp({
                 <strong>{todayEventsCount}</strong>
                 <small>Hoje</small>
               </div>
-              <div className="stat stat-progress-card">
+              <div
+                className="stat"
+                role="button"
+                tabIndex={0}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setView('finance')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setView('finance');
+                  }
+                }}
+              >
+                <div className="stat-top">
+                  <span className="stat-label">Finanças</span>
+                  <span
+                    className="stat-icon"
+                    style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
+                  >
+                    $
+                  </span>
+                </div>
+                <strong>{billsDueTodayCount}</strong>
+                <small>Vencem hoje</small>
+              </div>
+              <div
+                className="stat stat-progress-card"
+                role="button"
+                tabIndex={0}
+                style={{ cursor: 'pointer' }}
+                onClick={() => setView('goals')}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setView('goals');
+                  }
+                }}
+              >
                 <div className="stat-top">
                   <span className="stat-label">Progresso</span>
                   <span className="stat-icon">↗</span>
