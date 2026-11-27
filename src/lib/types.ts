@@ -220,3 +220,13 @@ export interface RecoveryLog {
   note: string | null;
   created_at: string;
 }
+
+export interface CourseProgress {
+  id: string;
+  user_id: string;
+  course_id: string;
+  lesson_id: string;
+  completed: boolean;
+  notes: string;
+  updated_at: string;
+}

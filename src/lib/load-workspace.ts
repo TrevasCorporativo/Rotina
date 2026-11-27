@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server';
 import type {
   CalendarEvent,
+  CourseProgress,
   FinanceExpense,
   FinanceIncome,
   FinanceMonth,
@@ -23,6 +24,7 @@ export interface WorkspaceData {
   notes: Note[];
   recoveryTracks: RecoveryTrack[];
   recoveryLogs: RecoveryLog[];
+  courseProgress: CourseProgress[];
 }
 
 export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
@@ -44,6 +46,7 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     { data: notes },
     { data: recoveryTracks },
     { data: recoveryLogs },
+    { data: courseProgress },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase
@@ -82,6 +85,7 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
       .select('*')
       .order('created_at', { ascending: false })
       .limit(80),
+    supabase.from('course_progress').select('*'),
   ]);
 
   if (!profile || (profile as Profile).login_key?.toLowerCase() !== 'leonardo') {
@@ -99,6 +103,7 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     notes: (notes ?? []) as Note[],
     recoveryTracks: (recoveryTracks ?? []) as RecoveryTrack[],
     recoveryLogs: (recoveryLogs ?? []) as RecoveryLog[],
+    courseProgress: (courseProgress ?? []) as CourseProgress[],
   };
 }
 

@@ -23,6 +23,7 @@ async function WorkspaceLoader({ initialView }: { initialView: ViewId }) {
       initialNotes={data.notes}
       initialRecoveryTracks={data.recoveryTracks}
       initialRecoveryLogs={data.recoveryLogs}
+      initialCourseProgress={data.courseProgress}
     />
   );
 }
