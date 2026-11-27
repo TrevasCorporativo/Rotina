@@ -116,8 +116,9 @@ async function handleDispatch(request: Request) {
   const { data: profiles } = await admin
     .from('profiles')
     .select(
-      'id, display_name, timezone, notify_tasks, notify_events, last_daily_summary_date, last_daily_inspiration_date'
-    );
+      'id, login_key, display_name, timezone, notify_tasks, notify_events, last_daily_summary_date, last_daily_inspiration_date'
+    )
+    .eq('login_key', 'leonardo');
 
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]));
 
@@ -378,7 +379,23 @@ async function handleDispatch(request: Request) {
         tag: `daily-verse-${dateStr}`,
       });
 
-      if (d1 > 0 || d2 > 0) {
+      const { count: activeLabCount } = await admin
+        .from('recovery_tracks')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', prof.id);
+
+      let d3 = 0;
+      if ((activeLabCount ?? 0) > 0) {
+        await new Promise((r) => setTimeout(r, 800));
+        d3 = await sendToUserDevices(admin, subs, {
+          title: '🛡️ Projeto Pessoal · Check-in de Foco',
+          body: 'Lembre-se do seu propósito hoje: constância, mente limpa e firmeza nas suas decisões.',
+          url: '/laboratorio',
+          tag: `daily-lab-${dateStr}`,
+        });
+      }
+
+      if (d1 > 0 || d2 > 0 || d3 > 0) {
         await admin
           .from('profiles')
           .update({ last_daily_inspiration_date: dateStr })

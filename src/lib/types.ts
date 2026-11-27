@@ -195,3 +195,28 @@ export interface Note {
   created_at: string;
   updated_at: string;
 }
+
+export interface RecoveryTrack {
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  why_statement: string;
+  triggers: string;
+  replacement_action: string;
+  streak_started_at: string;
+  best_streak_days: number;
+  last_checkin_date: string | null;
+  relapse_count: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface RecoveryLog {
+  id: string;
+  user_id: string;
+  track_id: string;
+  log_type: 'victory' | 'temptation_overcome' | 'relapse' | 'reflection';
+  note: string | null;
+  created_at: string;
+}

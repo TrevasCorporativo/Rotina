@@ -7,6 +7,8 @@ import type {
   Goal,
   Note,
   Profile,
+  RecoveryLog,
+  RecoveryTrack,
   Task,
 } from '@/lib/types';
 
@@ -19,6 +21,8 @@ export interface WorkspaceData {
   financeIncomes: FinanceIncome[];
   goals: Goal[];
   notes: Note[];
+  recoveryTracks: RecoveryTrack[];
+  recoveryLogs: RecoveryLog[];
 }
 
 export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
@@ -38,6 +42,8 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     { data: financeIncomes },
     { data: goals },
     { data: notes },
+    { data: recoveryTracks },
+    { data: recoveryLogs },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase
@@ -67,9 +73,20 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
       .select('*')
       .order('pinned', { ascending: false })
       .order('created_at', { ascending: false }),
+    supabase
+      .from('recovery_tracks')
+      .select('*')
+      .order('created_at', { ascending: false }),
+    supabase
+      .from('recovery_logs')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(80),
   ]);
 
-  if (!profile) return null;
+  if (!profile || (profile as Profile).login_key?.toLowerCase() !== 'leonardo') {
+    return null;
+  }
 
   return {
     profile: profile as Profile,
@@ -80,6 +97,8 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     financeIncomes: (financeIncomes ?? []) as FinanceIncome[],
     goals: (goals ?? []) as Goal[],
     notes: (notes ?? []) as Note[],
+    recoveryTracks: (recoveryTracks ?? []) as RecoveryTrack[],
+    recoveryLogs: (recoveryLogs ?? []) as RecoveryLog[],
   };
 }
 

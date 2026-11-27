@@ -22,6 +22,8 @@ import type {
   Goal,
   Note,
   Profile,
+  RecoveryLog,
+  RecoveryTrack,
   Task,
 } from '@/lib/types';
 import { BrandLogo } from './BrandLogo';
@@ -33,6 +35,7 @@ import {
 } from './EntryModal';
 import { FinanceView } from './FinanceView';
 import { GoalsView } from './GoalsView';
+import { LabView } from './LabView';
 import { NotesView } from './NotesView';
 import { ProfileView } from './ProfileView';
 import { TipsView } from './TipsView';
@@ -43,6 +46,7 @@ export type ViewId =
   | 'calendar'
   | 'goals'
   | 'notes'
+  | 'lab'
   | 'finance'
   | 'tips'
   | 'profile';
@@ -53,6 +57,7 @@ const VIEW_PATHS: Record<ViewId, string> = {
   calendar: '/agenda',
   goals: '/metas',
   notes: '/anotacoes',
+  lab: '/laboratorio',
   finance: '/financeiro',
   tips: '/severino',
   profile: '/perfil',
@@ -68,6 +73,8 @@ interface RotinaAppProps {
   initialFinanceIncomes: FinanceIncome[];
   initialGoals: Goal[];
   initialNotes: Note[];
+  initialRecoveryTracks: RecoveryTrack[];
+  initialRecoveryLogs: RecoveryLog[];
 }
 
 function localDate(d: Date): string {
@@ -109,6 +116,8 @@ export function RotinaApp({
   initialFinanceIncomes,
   initialGoals,
   initialNotes,
+  initialRecoveryTracks,
+  initialRecoveryLogs,
 }: RotinaAppProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -117,6 +126,10 @@ export function RotinaApp({
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
   const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [notes, setNotes] = useState<Note[]>(initialNotes);
+  const [recoveryTracks, setRecoveryTracks] =
+    useState<RecoveryTrack[]>(initialRecoveryTracks);
+  const [recoveryLogs, setRecoveryLogs] =
+    useState<RecoveryLog[]>(initialRecoveryLogs);
   const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(
     initialFinanceExpenses
   );
@@ -225,6 +238,7 @@ export function RotinaApp({
       v === 'calendar' ||
       v === 'goals' ||
       v === 'notes' ||
+      v === 'lab' ||
       v === 'finance' ||
       v === 'tips' ||
       v === 'profile'
@@ -795,6 +809,7 @@ export function RotinaApp({
     calendar: 'Agenda',
     goals: 'Metas',
     notes: 'Anotações',
+    lab: 'Laboratório',
     finance: 'Financeiro',
     tips: 'Severino',
     profile: 'Meu perfil',
@@ -1066,6 +1081,14 @@ export function RotinaApp({
             >
               <span className="ico">✎</span>
               <span className="nav-text">Anotações</span>
+            </button>
+            <button
+              className={view === 'lab' ? 'active' : ''}
+              onClick={() => setView('lab')}
+              title="Laboratório"
+            >
+              <span className="ico">🛡️</span>
+              <span className="nav-text">Laboratório</span>
             </button>
             <button
               className={view === 'finance' ? 'active' : ''}
@@ -1836,6 +1859,18 @@ export function RotinaApp({
           />
         )}
 
+        {view === 'lab' && (
+          <LabView
+            userId={profile.id}
+            todayStr={todayStr}
+            tracks={recoveryTracks}
+            logs={recoveryLogs}
+            onTracksChange={setRecoveryTracks}
+            onLogsChange={setRecoveryLogs}
+            onToast={showToast}
+          />
+        )}
+
         {view === 'finance' && (
           <FinanceView
             userId={profile.id}
@@ -1988,6 +2023,13 @@ export function RotinaApp({
               >
                 <span className="ico">✎</span>
                 <span>Anotações</span>
+              </button>
+              <button
+                className={view === 'lab' ? 'active' : ''}
+                onClick={() => setView('lab')}
+              >
+                <span className="ico">🛡️</span>
+                <span>Laboratório</span>
               </button>
               <button
                 className={view === 'finance' ? 'active' : ''}

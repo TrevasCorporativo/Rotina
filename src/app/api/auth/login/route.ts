@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     // Look up user email by login_key (name) or direct email
     const { data: profile, error: lookupError } = await admin
       .from('profiles')
-      .select('email, display_name')
+      .select('email, display_name, login_key')
       .or(`login_key.eq.${normalized},email.eq.${normalized}`)
       .maybeSingle();
 
@@ -29,6 +29,13 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: 'Nome não encontrado. Confira como você digitou.' },
         { status: 401 }
+      );
+    }
+
+    if (profile.login_key?.toLowerCase() !== 'leonardo') {
+      return NextResponse.json(
+        { error: 'Acesso restrito. Este aplicativo é de uso exclusivo.' },
+        { status: 403 }
       );
     }
 

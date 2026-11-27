@@ -21,6 +21,8 @@ async function WorkspaceLoader({ initialView }: { initialView: ViewId }) {
       initialFinanceIncomes={data.financeIncomes}
       initialGoals={data.goals}
       initialNotes={data.notes}
+      initialRecoveryTracks={data.recoveryTracks}
+      initialRecoveryLogs={data.recoveryLogs}
     />
   );
 }

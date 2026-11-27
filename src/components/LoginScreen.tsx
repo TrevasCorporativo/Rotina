@@ -48,7 +48,7 @@ export function LoginScreen() {
           <BrandLogo variant="light" size={38} /> Modo Sobrevivência
         </div>
         <div className="access-message">
-          <div className="access-kicker">DOIS ADULTOS. MIL BOLETOS. UMA AGENDA.</div>
+          <div className="access-kicker">UM ESPAÇO. FOCO TOTAL. UMA ROTINA.</div>
           <h1>
             A vida adulta
             <br />
@@ -123,7 +123,7 @@ export function LoginScreen() {
             <input
               id="loginName"
               type="text"
-              placeholder="Ex.: Leonardo ou Ana Gabriela"
+              placeholder="Ex.: Leonardo"
               autoComplete="username"
               value={name}
               onChange={(e) => setName(e.target.value)}
