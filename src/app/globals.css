@@ -494,6 +494,24 @@ button {
   margin-bottom: 22px;
 }
 
+.stats-compact {
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stats-compact .stat {
+  padding: 12px 14px;
+}
+
+.stats-compact .stat strong {
+  font-size: 21px;
+  margin-top: 4px;
+}
+
+.dash-head-compact {
+  margin-bottom: 14px;
+}
+
 .stat {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -2067,7 +2085,25 @@ button {
     gap: 10px;
     margin-bottom: 16px;
   }
-  .stat {
+  .stats-compact {
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stats-compact .stat {
+  padding: 12px 14px;
+}
+
+.stats-compact .stat strong {
+  font-size: 21px;
+  margin-top: 4px;
+}
+
+.dash-head-compact {
+  margin-bottom: 14px;
+}
+
+.stat {
     padding: 13px;
     display: flex;
     flex-direction: column;

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Mic, Moon, Sparkles, Sun } from 'lucide-react';
+import { Home, Mic, Moon, Sparkles, Sun } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { processCopilotCommand } from '@/lib/copilot-engine';
 import { getHolidayForDate } from '@/lib/holidays';
@@ -168,6 +168,7 @@ export function RotinaApp({
 
   const [modalMode, setModalMode] = useState<'task' | 'event' | null>(null);
   const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null);
+  const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [pushNeedsPrompt, setPushNeedsPrompt] = useState(false);
@@ -323,6 +324,36 @@ export function RotinaApp({
     const supabase = createClient();
 
     if (payload.type === 'task') {
+      if (payload.id) {
+        const { data, error } = await supabase
+          .from('tasks')
+          .update({
+            title: payload.title,
+            category: payload.category,
+            due_date: payload.due_date,
+            due_time: payload.due_time,
+            priority: payload.priority,
+            notify_enabled: true,
+            reminder_preset: payload.reminder_preset,
+            reminder_presets: payload.reminder_presets,
+            notified_presets: [],
+            notified_at: null,
+          })
+          .eq('id', payload.id)
+          .select('*')
+          .single();
+
+        if (error || !data) {
+          showToast('Erro ao atualizar tarefa.');
+          return;
+        }
+        setTasks((prev) =>
+          prev.map((t) => (t.id === payload.id ? (data as Task) : t))
+        );
+        showToast('Tarefa atualizada');
+        return;
+      }
+
       const targetDates =
         payload.due_dates.length > 0 ? payload.due_dates : [payload.due_date];
       const rows = targetDates.map((d) => ({
@@ -712,6 +743,11 @@ export function RotinaApp({
       <div
         key={t.id}
         className={`task ${t.done ? 'done' : ''} ${overdue ? 'overdue' : ''}`}
+        onDoubleClick={() => {
+          setEditingEvent(null);
+          setEditingTask(t);
+          setModalMode('task');
+        }}
       >
         <input
           className="check"
@@ -732,13 +768,26 @@ export function RotinaApp({
             <span className={`tag ${t.priority}`}>{prioLabel}</span>
           </div>
         </div>
-        <button
-          className="task-delete"
-          title="Excluir tarefa"
-          onClick={() => deleteTask(t.id)}
-        >
-          ×
-        </button>
+        <div className="event-actions">
+          <button
+            className="event-edit"
+            title="Editar tarefa"
+            onClick={() => {
+              setEditingEvent(null);
+              setEditingTask(t);
+              setModalMode('task');
+            }}
+          >
+            ✎
+          </button>
+          <button
+            className="task-delete"
+            title="Excluir tarefa"
+            onClick={() => deleteTask(t.id)}
+          >
+            ×
+          </button>
+        </div>
       </div>
     );
   }
@@ -945,52 +994,33 @@ export function RotinaApp({
 
         {view === 'dashboard' && (
           <section>
-            <div className="page-head">
+            <div className="page-head dash-head-compact">
               <div>
-                <div className="eyebrow">SEU DIA EM FOCO</div>
+                <div className="eyebrow">
+                  {greeting} {profile.display_name.split(' ')[0]}
+                </div>
                 <h1>Visão geral</h1>
-                <p className="subtitle">
-                  O painel oficial de quem está tentando ter a vida nos eixos.
-                </p>
+                <p className="subtitle">{phrase}</p>
               </div>
               <button
                 className="btn dashboard-head-btn"
-                onClick={() => setModalMode('task')}
+                onClick={() => {
+                  setEditingTask(null);
+                  setEditingEvent(null);
+                  setModalMode('task');
+                }}
               >
                 ＋ Nova tarefa
               </button>
             </div>
 
-            <div className="welcome-card">
-              <div className="welcome-copy">
-                <div className="welcome-eyebrow">CENTRAL DE CONTROLE DO CAOS</div>
-                <h2>
-                  {greeting} {profile.display_name.split(' ')[0]}
-                </h2>
-                <p>{phrase}</p>
-                <button
-                  className="btn welcome-btn"
-                  onClick={() => setModalMode('task')}
-                >
-                  Adicionar uma tarefa <span style={{ marginLeft: 4 }}>＋</span>
-                </button>
-              </div>
-              <div className="welcome-art">
-                <div className="orb orb1" />
-                <div className="orb orb2" />
-                <div className="leaf leaf1">✦</div>
-                <div className="leaf leaf2">✧</div>
-                <div className="welcome-symbol">◒</div>
-              </div>
-            </div>
-
-            <div className="stats">
+            <div className="stats stats-compact">
               <div className="stat">
                 <div className="stat-top">
-                  Tarefas abertas <span className="stat-icon">☑</span>
+                  Abertas <span className="stat-icon">☑</span>
                 </div>
                 <strong>{openCount}</strong>
-                <small>Itens que ainda precisam da sua atenção</small>
+                <small>Para resolver</small>
               </div>
               <div className="stat">
                 <div className="stat-top">
@@ -1003,11 +1033,11 @@ export function RotinaApp({
                   </span>
                 </div>
                 <strong>{doneCount}</strong>
-                <small>Pequenos avanços contam</small>
+                <small>Feitas</small>
               </div>
               <div className="stat">
                 <div className="stat-top">
-                  Compromissos{' '}
+                  Agenda hoje{' '}
                   <span
                     className="stat-icon"
                     style={{ background: 'rgba(223, 147, 66, 0.14)', color: 'var(--orange)' }}
@@ -1016,14 +1046,14 @@ export function RotinaApp({
                   </span>
                 </div>
                 <strong>{todayEventsCount}</strong>
-                <small>Eventos cadastrados para hoje</small>
+                <small>Compromissos</small>
               </div>
               <div className="stat">
                 <div className="stat-top">
-                  Seu progresso <span className="stat-icon">↗</span>
+                  Progresso <span className="stat-icon">↗</span>
                 </div>
                 <strong>{pct}%</strong>
-                <small>Das tarefas cadastradas</small>
+                <small>Concluído</small>
               </div>
             </div>
 
@@ -1486,7 +1516,7 @@ export function RotinaApp({
         </footer>
       </main>
 
-      {/* Mobile Bottom Navigation (5 items, Agenda highlighted in center) */}
+      {/* Mobile Bottom Navigation (5 items, Início highlighted in green center) */}
       <nav className="mobile-bottom-nav" aria-label="Navegação mobile">
         <button
           className={view === 'goals' ? 'active' : ''}
@@ -1503,18 +1533,20 @@ export function RotinaApp({
           <small>Finanças</small>
         </button>
         <button
-          className={`nav-center-agenda ${view === 'calendar' ? 'active' : ''}`}
-          onClick={() => setView('calendar')}
+          className={`nav-center-agenda ${view === 'dashboard' ? 'active' : ''}`}
+          onClick={() => setView('dashboard')}
         >
-          <span className="agenda-center-pill">▦</span>
-          <small>Agenda</small>
+          <span className="agenda-center-pill">
+            <Home size={20} strokeWidth={2.2} />
+          </span>
+          <small>Início</small>
         </button>
         <button
-          className={view === 'tasks' ? 'active' : ''}
-          onClick={() => setView('tasks')}
+          className={view === 'calendar' ? 'active' : ''}
+          onClick={() => setView('calendar')}
         >
-          <span>☑</span>
-          <small>Tarefas</small>
+          <span>▦</span>
+          <small>Agenda</small>
         </button>
         <button
           className={view === 'tips' ? 'active' : ''}
@@ -1631,13 +1663,15 @@ export function RotinaApp({
 
       {modalMode && (
         <EntryModal
-          key={editingEvent?.id ?? modalMode}
+          key={editingTask?.id ?? editingEvent?.id ?? modalMode}
           mode={modalMode}
           defaultDate={modalMode === 'event' ? selectedDate : todayStr}
           editingEvent={editingEvent}
+          editingTask={editingTask}
           onClose={() => {
             setModalMode(null);
             setEditingEvent(null);
+            setEditingTask(null);
           }}
           onSave={handleSaveEntry}
         />

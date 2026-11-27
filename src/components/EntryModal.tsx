@@ -1,10 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import type { CalendarEvent, Priority } from '@/lib/types';
+import type { CalendarEvent, Priority, Task } from '@/lib/types';
 
 export interface NewTaskPayload {
   type: 'task';
+  id?: string;
   title: string;
   category: string;
   due_date: string | null;
@@ -35,6 +36,7 @@ interface EntryModalProps {
   mode: 'task' | 'event';
   defaultDate: string;
   editingEvent?: CalendarEvent | null;
+  editingTask?: Task | null;
   onClose: () => void;
   onSave: (payload: NewTaskPayload | NewEventPayload) => Promise<void>;
 }
@@ -111,27 +113,41 @@ export function EntryModal({
   mode,
   defaultDate,
   editingEvent,
+  editingTask,
   onClose,
   onSave,
 }: EntryModalProps) {
-  const isEditing = mode === 'event' && Boolean(editingEvent);
+  const isEditing =
+    (mode === 'event' && Boolean(editingEvent)) ||
+    (mode === 'task' && Boolean(editingTask));
 
-  const [title, setTitle] = useState(editingEvent?.title ?? '');
-  const [category, setCategory] = useState('Pessoal');
-  const [date, setDate] = useState(editingEvent?.event_date ?? defaultDate);
-  const [time, setTime] = useState(
-    editingEvent ? editingEvent.event_time.slice(0, 5) : '09:00'
+  const [title, setTitle] = useState(
+    editingTask?.title ?? editingEvent?.title ?? ''
   );
-  const [priority, setPriority] = useState<Priority>('medium');
+  const [category, setCategory] = useState(editingTask?.category ?? 'Pessoal');
+  const [date, setDate] = useState(
+    editingTask?.due_date ?? editingEvent?.event_date ?? defaultDate
+  );
+  const [time, setTime] = useState(
+    editingTask?.due_time
+      ? editingTask.due_time.slice(0, 5)
+      : editingEvent
+      ? editingEvent.event_time.slice(0, 5)
+      : '09:00'
+  );
+  const [priority, setPriority] = useState<Priority>(
+    editingTask?.priority ?? 'medium'
+  );
   const [location, setLocation] = useState(editingEvent?.location ?? '');
   const [notes, setNotes] = useState(editingEvent?.notes ?? '');
   const [reminderChoice, setReminderChoice] = useState(() =>
     getInitialReminder(editingEvent, mode)
   );
-  const [taskReminders, setTaskReminders] = useState<string[]>([
-    'same_day_08',
-    'relative:0',
-  ]);
+  const [taskReminders, setTaskReminders] = useState<string[]>(() =>
+    editingTask?.reminder_presets && editingTask.reminder_presets.length > 0
+      ? editingTask.reminder_presets
+      : ['same_day_08', 'relative:0']
+  );
 
   // Multi-day selection state (for creating new tasks or events)
   const [dayMode, setDayMode] = useState<'single' | 'custom' | 'weekdays'>('single');
@@ -206,6 +222,7 @@ export function EntryModal({
       if (mode === 'task') {
         await onSave({
           type: 'task',
+          id: editingTask?.id,
           title: trimmed,
           category,
           due_date: targetDates[0] ?? null,
@@ -255,7 +272,9 @@ export function EntryModal({
         <div className="modal-head">
           <h2>
             {mode === 'task'
-              ? 'Nova tarefa'
+              ? isEditing
+                ? 'Editar tarefa'
+                : 'Nova tarefa'
               : isEditing
               ? 'Editar evento'
               : 'Novo evento'}
