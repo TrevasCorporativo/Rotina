@@ -1,7 +1,15 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Mic, Sparkles, Square } from 'lucide-react';
+import {
+  BarChart3,
+  Calendar,
+  CheckSquare,
+  Mic,
+  Sparkles,
+  Square,
+  Wallet,
+} from 'lucide-react';
 import {
   processCopilotCommand,
   type CopilotMetrics,
@@ -469,9 +477,18 @@ export function TipsView({
             {analysis.score}/100 · {analysis.summary}
           </h2>
           <div className="coach-pills" style={{ marginTop: 10 }}>
-            <span>📅 {analysis.metrics.todayEvents.length} hoje</span>
-            <span>☑ {analysis.metrics.openTasks.length} tarefas abertas</span>
-            <span>💰 {formatBRL(analysis.metrics.balance)} saldo</span>
+            <span>
+              <Calendar size={13} strokeWidth={2.2} />
+              {analysis.metrics.todayEvents.length} hoje
+            </span>
+            <span>
+              <CheckSquare size={13} strokeWidth={2.2} />
+              {analysis.metrics.openTasks.length} tarefas abertas
+            </span>
+            <span>
+              <Wallet size={13} strokeWidth={2.2} />
+              {formatBRL(analysis.metrics.balance)} saldo
+            </span>
           </div>
         </div>
         <div className="coach-score-ring">
@@ -494,7 +511,8 @@ export function TipsView({
           className={`chip ${activeTab === 'diagnosis' ? 'active' : ''}`}
           onClick={() => setActiveTab('diagnosis')}
         >
-          📊 Diagnóstico &amp; Ações ({analysis.insights.length})
+          <BarChart3 size={13} style={{ display: 'inline', marginRight: 5 }} />
+          Diagnóstico &amp; Ações ({analysis.insights.length})
         </button>
       </div>
 
