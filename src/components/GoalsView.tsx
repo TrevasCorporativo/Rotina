@@ -33,11 +33,11 @@ function getDaysDiffLabel(targetDate: string | null, todayStr: string, done: boo
     year: 'numeric',
   });
 
-  if (done) return { text: `Alvo: ${formatted}`, overdue: false };
-  if (diff < 0) return { text: `${formatted} · Atrasada (${Math.abs(diff)}d)`, overdue: true };
+  if (done) return { text: formatted, overdue: false };
+  if (diff < 0) return { text: `${formatted} · Atrasada`, overdue: true };
   if (diff === 0) return { text: `${formatted} · É hoje!`, overdue: false };
   if (diff === 1) return { text: `${formatted} · Amanhã`, overdue: false };
-  return { text: `${formatted} · Faltam ${diff} dias`, overdue: false };
+  return { text: `${formatted} · ${diff}d`, overdue: false };
 }
 
 export function GoalsView({
@@ -63,6 +63,9 @@ export function GoalsView({
   const avgProgress = goals.length
     ? Math.round(goals.reduce((acc, g) => acc + g.progress, 0) / goals.length)
     : 0;
+  const overdueCount = goals.filter(
+    (g) => !g.done && g.target_date && g.target_date < todayStr
+  ).length;
 
   const filteredGoals = useMemo(() => {
     return goals
@@ -198,9 +201,9 @@ export function GoalsView({
       <div className="page-head">
         <div>
           <div className="eyebrow">VISÃO DE FUTURO</div>
-          <h1>Minhas metas</h1>
+          <h1>Metas</h1>
           <p className="subtitle">
-            Defina objetivos com data alvo e acompanhe sua evolução.
+            Objetivos claros com data alvo e acompanhamento simples.
           </p>
         </div>
         <button className="btn" type="button" onClick={openNewGoal}>
@@ -208,13 +211,13 @@ export function GoalsView({
         </button>
       </div>
 
-      <div className="stats" style={{ gridTemplateColumns: 'repeat(3, minmax(0, 1fr))' }}>
+      <div className="stats">
         <div className="stat">
           <div className="stat-top">
-            Metas ativas <span className="stat-icon">◎</span>
+            Em andamento <span className="stat-icon">◎</span>
           </div>
           <strong>{activeCount}</strong>
-          <small>Em andamento</small>
+          <small>Metas ativas</small>
         </div>
         <div className="stat">
           <div className="stat-top">
@@ -225,53 +228,96 @@ export function GoalsView({
         </div>
         <div className="stat">
           <div className="stat-top">
-            Média geral <span className="stat-icon">↗</span>
+            Em atraso <span className="stat-icon">!</span>
+          </div>
+          <strong style={{ color: overdueCount > 0 ? 'var(--red)' : 'var(--text)' }}>
+            {overdueCount}
+          </strong>
+          <small>Prazo vencido</small>
+        </div>
+        <div className="stat">
+          <div className="stat-top">
+            Progresso médio <span className="stat-icon">↗</span>
           </div>
           <strong>{avgProgress}%</strong>
-          <small>Progresso médio</small>
+          <small>De todas as metas</small>
         </div>
       </div>
 
       <div className="panel">
         <div className="panel-head">
           <h2>Lista de metas</h2>
-          <div className="filter-row" style={{ marginBottom: 0 }}>
-            <button
-              className={`chip ${filter === 'all' ? 'active' : ''}`}
-              onClick={() => setFilter('all')}
-            >
-              Todas
-            </button>
-            <button
-              className={`chip ${filter === 'open' ? 'active' : ''}`}
-              onClick={() => setFilter('open')}
-            >
-              Em andamento
-            </button>
-            <button
-              className={`chip ${filter === 'done' ? 'active' : ''}`}
-              onClick={() => setFilter('done')}
-            >
-              Alcançadas
-            </button>
-          </div>
+          <span className="muted" style={{ fontSize: 11 }}>
+            {goals.length} {goals.length === 1 ? 'meta' : 'metas'}
+          </span>
         </div>
 
-        {filteredGoals.length ? (
-          <div className="tips-grid">
-            {filteredGoals.map((g) => {
+        <div className="filter-row">
+          <button
+            className={`chip ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            Todas
+          </button>
+          <button
+            className={`chip ${filter === 'open' ? 'active' : ''}`}
+            onClick={() => setFilter('open')}
+          >
+            Em andamento
+          </button>
+          <button
+            className={`chip ${filter === 'done' ? 'active' : ''}`}
+            onClick={() => setFilter('done')}
+          >
+            Alcançadas
+          </button>
+        </div>
+
+        <div className="task-list">
+          {filteredGoals.length ? (
+            filteredGoals.map((g) => {
               const dateInfo = getDaysDiffLabel(g.target_date, todayStr, g.done);
               return (
                 <div
                   key={g.id}
-                  className={`panel tip-card ${
-                    g.done ? 'tip-good' : dateInfo.overdue ? 'tip-alert' : ''
+                  className={`goal-row ${g.done ? 'done' : ''} ${
+                    dateInfo.overdue ? 'overdue' : ''
                   }`}
-                  style={{ background: 'var(--surface-2)' }}
                 >
-                  <div className="panel-head" style={{ marginBottom: 8 }}>
-                    <span className="tag">{g.category}</span>
-                    <div style={{ display: 'flex', gap: 2 }}>
+                  <div className="goal-row-top">
+                    <input
+                      type="checkbox"
+                      className="check"
+                      checked={g.done}
+                      aria-label="Concluir meta"
+                      onChange={() => updateProgress(g, g.done ? 0 : 100)}
+                    />
+                    <div className="task-main">
+                      <div className="task-title">{g.title}</div>
+                      <div className="task-meta">
+                        <span>{g.category}</span>
+                        <span>·</span>
+                        <span style={{ color: dateInfo.overdue ? 'var(--red)' : undefined }}>
+                          {dateInfo.text}
+                        </span>
+                        {g.notes && (
+                          <>
+                            <span>·</span>
+                            <span>{g.notes}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="goal-row-actions">
+                      <button
+                        type="button"
+                        className="chip"
+                        onClick={() => updateProgress(g, g.progress + 10)}
+                        disabled={g.progress >= 100}
+                        title="Avançar +10%"
+                      >
+                        +10%
+                      </button>
                       <button
                         type="button"
                         className="event-edit"
@@ -290,88 +336,28 @@ export function GoalsView({
                       </button>
                     </div>
                   </div>
-
-                  <h2
-                    style={{
-                      fontSize: 16,
-                      marginBottom: 4,
-                      textDecoration: g.done ? 'line-through' : 'none',
-                      color: g.done ? 'var(--green)' : 'var(--text)',
-                    }}
-                  >
-                    {g.title}
-                  </h2>
-
-                  <div
-                    style={{
-                      fontSize: 11,
-                      fontWeight: 600,
-                      color: dateInfo.overdue ? 'var(--red)' : 'var(--muted)',
-                      marginBottom: 10,
-                    }}
-                  >
-                    {dateInfo.text}
-                  </div>
-
-                  {g.notes && (
-                    <p
-                      className="muted"
-                      style={{ fontSize: 12, margin: '0 0 12px', lineHeight: 1.5 }}
-                    >
-                      {g.notes}
-                    </p>
-                  )}
-
-                  <div className="progress-label">
-                    <span>Evolução</span>
-                    <strong>{g.progress}%</strong>
-                  </div>
-                  <div className="progress" style={{ height: 8, marginBottom: 12 }}>
-                    <span
-                      style={{
-                        width: `${g.progress}%`,
-                        background: g.done ? 'var(--green)' : 'var(--accent)',
-                      }}
-                    />
-                  </div>
-
-                  <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      className="btn secondary small"
-                      onClick={() => updateProgress(g, g.progress - 10)}
-                      disabled={g.progress <= 0}
-                    >
-                      -10%
-                    </button>
-                    <button
-                      type="button"
-                      className="btn secondary small"
-                      onClick={() => updateProgress(g, g.progress + 10)}
-                      disabled={g.progress >= 100}
-                    >
-                      +10%
-                    </button>
-                    {!g.done && (
-                      <button
-                        type="button"
-                        className="btn small"
-                        onClick={() => updateProgress(g, 100)}
-                      >
-                        Concluir ✓
-                      </button>
-                    )}
+                  <div className="goal-progress-line">
+                    <div className="progress" style={{ flex: 1, height: 6 }}>
+                      <span
+                        style={{
+                          width: `${g.progress}%`,
+                          background: g.done ? 'var(--green)' : 'var(--accent)',
+                        }}
+                      />
+                    </div>
+                    <small className="muted" style={{ fontSize: 11, fontWeight: 700 }}>
+                      {g.progress}%
+                    </small>
                   </div>
                 </div>
               );
-            })}
-          </div>
-        ) : (
-          <div className="empty">
-            Nenhuma meta cadastrada aqui ainda. Clique em &ldquo;＋ Nova meta&rdquo; para
-            começar!
-          </div>
-        )}
+            })
+          ) : (
+            <div className="empty">
+              Nenhuma meta por aqui. Clique em &ldquo;＋ Nova meta&rdquo; para começar.
+            </div>
+          )}
+        </div>
       </div>
 
       {modalOpen && (
@@ -477,4 +463,3 @@ export function GoalsView({
     </section>
   );
 }
-

@@ -757,18 +757,20 @@ export function RotinaApp({
 
       <aside className="sidebar">
         <div className="sidebar-top">
-          <div className="brand">
-            <BrandLogo size={36} />
-            <span className="brand-text">Modo Sobrevivência</span>
-          </div>
           <button
             type="button"
-            className="mobile-menu-btn"
-            onClick={() => setMobileDrawerOpen(true)}
-            title="Abrir menu"
-            aria-label="Abrir menu lateral"
+            className="brand brand-trigger"
+            onClick={() => {
+              if (window.innerWidth <= 680) {
+                setMobileDrawerOpen(true);
+              } else {
+                setView('dashboard');
+              }
+            }}
+            title="Menu / Visão geral"
           >
-            ☰
+            <BrandLogo size={36} />
+            <span className="brand-text">Modo Sobrevivência</span>
           </button>
           <button
             type="button"

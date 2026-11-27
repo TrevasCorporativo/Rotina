@@ -212,6 +212,13 @@ button {
   letter-spacing: -0.5px;
 }
 
+.brand-trigger {
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+
 .nav-label {
   font-size: 10px;
   letter-spacing: 1.2px;
@@ -637,14 +644,47 @@ button {
   font-size: 13px;
 }
 
-.task.done .task-title {
+.task.done .task-title,
+.goal-row.done .task-title {
   text-decoration: line-through;
   color: var(--green);
 }
 
-.task.overdue .task-title {
+.task.overdue .task-title,
+.goal-row.overdue .task-title {
   text-decoration: line-through;
   color: var(--red);
+}
+
+.goal-row {
+  padding: 13px 6px;
+  border-bottom: 1px solid var(--line);
+  display: grid;
+  gap: 10px;
+}
+
+.goal-row:last-child {
+  border-bottom: 0;
+}
+
+.goal-row-top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.goal-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: none;
+}
+
+.goal-progress-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-left: 30px;
 }
 
 .event.overdue .event-title,
