@@ -1155,7 +1155,7 @@ export function RotinaApp({
                 <strong>{todayEventsCount}</strong>
                 <small>Hoje</small>
               </div>
-              <div className="stat">
+              <div className="stat stat-progress-card">
                 <div className="stat-top">
                   <span className="stat-label">Progresso</span>
                   <span className="stat-icon">↗</span>
