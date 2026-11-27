@@ -1974,6 +1974,13 @@ export function RotinaApp({
                 <span>Metas</span>
               </button>
               <button
+                className={view === 'notes' ? 'active' : ''}
+                onClick={() => setView('notes')}
+              >
+                <span className="ico">✎</span>
+                <span>Anotações</span>
+              </button>
+              <button
                 className={view === 'finance' ? 'active' : ''}
                 onClick={() => setView('finance')}
               >
