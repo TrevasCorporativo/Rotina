@@ -2079,7 +2079,7 @@ button {
     font-size: 16px;
   }
   .main {
-    padding: 16px 14px 86px;
+    padding: 16px 10px 86px;
   }
   .topbar {
     margin-bottom: 16px;
@@ -2125,34 +2125,38 @@ button {
     margin-bottom: 16px;
   }
   .stats-compact {
-    gap: 6px;
+    gap: 5px;
     margin-bottom: 14px;
   }
   .stats-compact .stat {
-    padding: 9px 8px;
+    padding: 8px 6px;
+    border-radius: 14px;
     text-align: left;
     overflow: hidden;
     min-width: 0;
   }
   .stats-compact .stat-top {
-    flex-direction: column-reverse;
-    align-items: flex-start;
-    gap: 4px;
-    font-size: 10px;
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    gap: 2px;
+    font-size: 9px;
+    letter-spacing: -0.2px;
     line-height: 1.2;
+    white-space: nowrap;
     min-width: 0;
     width: 100%;
   }
   .stats-compact .stat-icon {
-    width: 22px;
-    height: 22px;
-    font-size: 11px;
-    border-radius: 7px;
+    width: 16px;
+    height: 16px;
+    font-size: 9px;
+    border-radius: 5px;
     flex: none;
   }
   .stats-compact .stat strong {
-    font-size: 18px;
-    margin-top: 3px;
+    font-size: 17px;
+    margin-top: 4px;
   }
   .stats-compact .stat small {
     font-size: 9px;
