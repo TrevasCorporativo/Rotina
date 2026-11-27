@@ -692,7 +692,7 @@ export function LabView({
             <form onSubmit={handleSaveTrack}>
               <div className="form-row">
                 <div className="field">
-                  <label htmlFor="labTitle">O que você quer vencer?</label>
+                  <label htmlFor="labTitle">O que vencer?</label>
                   <input
                     id="labTitle"
                     required
@@ -718,20 +718,18 @@ export function LabView({
               </div>
 
               <div className="field">
-                <label htmlFor="labWhy">
-                  Seu porquê (diante de Deus, como homem, marido, filho, amigo)
-                </label>
+                <label htmlFor="labWhy">Seu porquê (Deus, família e caráter)</label>
                 <textarea
                   id="labWhy"
                   rows={2}
-                  placeholder="Por que você não aceita mais esse vício na sua vida?"
+                  placeholder="Por que você não aceita mais isso na sua vida?"
                   value={whyStatement}
                   onChange={(e) => setWhyStatement(e.target.value)}
                 />
               </div>
 
               <div className="field">
-                <label htmlFor="labTriggers">Gatilhos que costumam te derrubar</label>
+                <label htmlFor="labTriggers">Gatilhos</label>
                 <input
                   id="labTriggers"
                   placeholder="Ex: Celular na cama, tédio, estresse..."
@@ -741,13 +739,11 @@ export function LabView({
               </div>
 
               <div className="field">
-                <label htmlFor="labAction">
-                  O que fazer imediatamente na hora da tentação
-                </label>
+                <label htmlFor="labAction">Ação na hora da tentação</label>
                 <textarea
                   id="labAction"
                   rows={2}
-                  placeholder="Ex: Largar o celular na sala, lavar o rosto, orar Salmo 51..."
+                  placeholder="Ex: Largar o celular na sala, lavar o rosto, orar..."
                   value={replacementAction}
                   onChange={(e) => setReplacementAction(e.target.value)}
                 />
