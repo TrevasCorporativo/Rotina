@@ -189,7 +189,7 @@ export function NotesView({
             Guarde notas rápidas, listas e fotos importantes em um só lugar.
           </p>
         </div>
-        <button className="btn dashboard-head-btn" onClick={openCreate}>
+        <button type="button" className="btn" onClick={openCreate}>
           ＋ Nova anotação
         </button>
       </div>
