@@ -419,14 +419,29 @@ export function ProfileView({
                 type="checkbox"
                 className="check"
                 checked={wakeWordEnabled}
-                onChange={(e) => {
+                onChange={async (e) => {
                   const next = e.target.checked;
+                  if (next) {
+                    try {
+                      if (navigator.mediaDevices?.getUserMedia) {
+                        const stream = await navigator.mediaDevices.getUserMedia({
+                          audio: true,
+                        });
+                        stream.getTracks().forEach((t) => t.stop());
+                      }
+                    } catch {
+                      onToast(
+                        'Permissão de microfone negada. Libere o microfone nas configurações do navegador.'
+                      );
+                      return;
+                    }
+                  }
                   setWakeWordEnabled(next);
                   localStorage.setItem('rotina_wake_word', next ? '1' : '0');
                   window.dispatchEvent(new Event('rotina-wake-word-changed'));
                   onToast(
                     next
-                      ? 'Escuta "Severino" ativada enquanto o app estiver aberto!'
+                      ? 'Escuta "Severino" ativada!'
                       : 'Escuta contínua desativada.'
                   );
                 }}

@@ -292,6 +292,7 @@ export function RotinaApp({
     if (!SpeechRec) return;
 
     let cancelled = false;
+    let restartTimer: ReturnType<typeof setTimeout> | null = null;
     const rec = new SpeechRec();
     rec.lang = 'pt-BR';
     rec.continuous = true;
@@ -299,7 +300,10 @@ export function RotinaApp({
 
     rec.onresult = (event) => {
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const text = (event.results[i][0]?.transcript || '').toLowerCase();
+        const text = (event.results[i][0]?.transcript || '')
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '');
         if (text.includes('severino')) {
           cancelled = true;
           rec.stop();
@@ -313,15 +317,22 @@ export function RotinaApp({
       }
     };
 
-    rec.onerror = () => {};
+    rec.onerror = (ev?: unknown) => {
+      const errName = (ev as { error?: string })?.error;
+      if (errName === 'not-allowed' || errName === 'service-not-allowed') {
+        cancelled = true;
+      }
+    };
 
     rec.onend = () => {
       if (!cancelled && localStorage.getItem('rotina_wake_word') === '1') {
-        try {
-          rec.start();
-        } catch {
-          // ignore
-        }
+        restartTimer = setTimeout(() => {
+          try {
+            rec.start();
+          } catch {
+            // Safari blocks restart without user gesture
+          }
+        }, 350);
       }
     };
 
@@ -329,11 +340,12 @@ export function RotinaApp({
       rec.start();
       wakeRecRef.current = rec;
     } catch {
-      // ignore
+      // ignore if browser requires user gesture first
     }
 
     return () => {
       cancelled = true;
+      if (restartTimer) clearTimeout(restartTimer);
       rec.stop();
     };
   }, [wakeWordActive, quickListening]);
