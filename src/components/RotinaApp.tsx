@@ -185,8 +185,10 @@ export function RotinaApp({
   const [quickSpeechSupported, setQuickSpeechSupported] = useState(false);
   const [quickListening, setQuickListening] = useState(false);
   const [quickTranscript, setQuickTranscript] = useState('');
+  const [wakeWordActive, setWakeWordActive] = useState(false);
   const quickRecRef = useRef<{ stop: () => void } | null>(null);
   const quickFinalRef = useRef('');
+  const wakeRecRef = useRef<{ stop: () => void } | null>(null);
   const [refreshState, setRefreshState] = useState<{
     open: boolean;
     step: string;
@@ -247,7 +249,94 @@ export function RotinaApp({
         })
         .catch(() => {});
     }
+
+    const syncWakeWord = () => {
+      setWakeWordActive(localStorage.getItem('rotina_wake_word') === '1');
+    };
+    syncWakeWord();
+    window.addEventListener('rotina-wake-word-changed', syncWakeWord);
+    return () => window.removeEventListener('rotina-wake-word-changed', syncWakeWord);
   }, []);
+
+  useEffect(() => {
+    if (!wakeWordActive || quickListening) {
+      wakeRecRef.current?.stop();
+      wakeRecRef.current = null;
+      return;
+    }
+
+    const w = window as unknown as {
+      SpeechRecognition?: new () => {
+        lang: string;
+        continuous: boolean;
+        interimResults: boolean;
+        onresult: ((ev: { resultIndex: number; results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      };
+      webkitSpeechRecognition?: new () => {
+        lang: string;
+        continuous: boolean;
+        interimResults: boolean;
+        onresult: ((ev: { resultIndex: number; results: ArrayLike<{ 0: { transcript: string } }> }) => void) | null;
+        onerror: (() => void) | null;
+        onend: (() => void) | null;
+        start: () => void;
+        stop: () => void;
+      };
+    };
+
+    const SpeechRec = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (!SpeechRec) return;
+
+    let cancelled = false;
+    const rec = new SpeechRec();
+    rec.lang = 'pt-BR';
+    rec.continuous = true;
+    rec.interimResults = true;
+
+    rec.onresult = (event) => {
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const text = (event.results[i][0]?.transcript || '').toLowerCase();
+        if (text.includes('severino')) {
+          cancelled = true;
+          rec.stop();
+          setViewState('tips');
+          if (window.location.pathname !== VIEW_PATHS.tips) {
+            window.history.pushState(null, '', VIEW_PATHS.tips);
+          }
+          showToast('Severino ativado por voz!');
+          break;
+        }
+      }
+    };
+
+    rec.onerror = () => {};
+
+    rec.onend = () => {
+      if (!cancelled && localStorage.getItem('rotina_wake_word') === '1') {
+        try {
+          rec.start();
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    try {
+      rec.start();
+      wakeRecRef.current = rec;
+    } catch {
+      // ignore
+    }
+
+    return () => {
+      cancelled = true;
+      rec.stop();
+    };
+  }, [wakeWordActive, quickListening]);
 
   function showToast(msg: string) {
     setToastMsg(msg);

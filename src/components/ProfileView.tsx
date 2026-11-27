@@ -37,10 +37,14 @@ export function ProfileView({
   const [pushSupported, setPushSupported] = useState(false);
   const [pushActive, setPushActive] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
+  const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
 
   useEffect(() => {
     let active = true;
     Promise.resolve().then(async () => {
+      if (active) {
+        setWakeWordEnabled(localStorage.getItem('rotina_wake_word') === '1');
+      }
       const supported = isPushSupported();
       if (!active) return;
       setPushSupported(supported);
@@ -395,6 +399,45 @@ export function ProfileView({
                 </p>
               </div>
             )}
+          </div>
+
+          <div className="panel">
+            <div className="panel-head">
+              <h2>Comando de voz &ldquo;Severino&rdquo;</h2>
+            </div>
+            <label
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 9,
+                fontSize: 13,
+                cursor: 'pointer',
+                marginBottom: 8,
+              }}
+            >
+              <input
+                type="checkbox"
+                className="check"
+                checked={wakeWordEnabled}
+                onChange={(e) => {
+                  const next = e.target.checked;
+                  setWakeWordEnabled(next);
+                  localStorage.setItem('rotina_wake_word', next ? '1' : '0');
+                  window.dispatchEvent(new Event('rotina-wake-word-changed'));
+                  onToast(
+                    next
+                      ? 'Escuta "Severino" ativada enquanto o app estiver aberto!'
+                      : 'Escuta contínua desativada.'
+                  );
+                }}
+              />
+              Ativar escuta contínua ao falar &ldquo;Severino&rdquo; (com o site aberto)
+            </label>
+            <p className="muted" style={{ fontSize: 11, margin: 0 }}>
+              Por segurança do iPhone/Android, nenhum site pode usar o microfone com o
+              navegador fechado. Para abrir direto com a tela bloqueada no iPhone, crie
+              um Atalho da Siri apontando para <code>/severino</code>.
+            </p>
           </div>
 
           <div className="panel">
