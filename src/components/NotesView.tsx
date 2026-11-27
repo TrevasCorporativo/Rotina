@@ -201,8 +201,8 @@ export function NotesView({
             alignItems: 'center',
             gap: 8,
             marginBottom: 12,
-            background: 'var(--bg-elev)',
-            border: '1px solid var(--border)',
+            background: 'var(--input-bg)',
+            border: '1px solid var(--line)',
             borderRadius: 12,
             padding: '8px 12px',
           }}
@@ -333,42 +333,35 @@ export function NotesView({
               </button>
             </div>
             <form onSubmit={handleSave}>
-              <label>
-                Título
+              <div className="field">
+                <label htmlFor="noteTitle">Título</label>
                 <input
+                  id="noteTitle"
                   type="text"
+                  autoFocus
                   placeholder="Ex: Lista de compras, Ideia pro projeto..."
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                 />
-              </label>
+              </div>
 
-              <label>
-                Conteúdo
+              <div className="field">
+                <label htmlFor="noteContent">Conteúdo</label>
                 <textarea
+                  id="noteContent"
                   rows={4}
                   placeholder="Escreva os detalhes aqui..."
                   value={content}
                   onChange={(e) => setContent(e.target.value)}
-                  style={{
-                    width: '100%',
-                    resize: 'vertical',
-                    padding: '10px 12px',
-                    borderRadius: 12,
-                    border: '1px solid var(--border)',
-                    background: 'var(--bg-elev)',
-                    color: 'var(--text)',
-                    fontFamily: 'inherit',
-                    fontSize: 13,
-                    marginTop: 6,
-                  }}
+                  style={{ resize: 'vertical' }}
                 />
-              </label>
+              </div>
 
               <div className="form-row">
-                <label>
-                  Categoria
+                <div className="field">
+                  <label htmlFor="noteCategory">Categoria</label>
                   <select
+                    id="noteCategory"
                     value={category}
                     onChange={(e) => setCategory(e.target.value)}
                   >
@@ -378,25 +371,29 @@ export function NotesView({
                       </option>
                     ))}
                   </select>
-                </label>
+                </div>
 
-                <label
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    marginTop: 22,
-                    cursor: 'pointer',
-                  }}
-                >
-                  <input
-                    type="checkbox"
-                    className="check"
-                    checked={pinned}
-                    onChange={(e) => setPinned(e.target.checked)}
-                  />
-                  Fixar no topo
-                </label>
+                <div className="field" style={{ alignContent: 'end' }}>
+                  <label
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 8,
+                      fontSize: 13,
+                      color: 'var(--text)',
+                      cursor: 'pointer',
+                      padding: '10px 0',
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      className="check"
+                      checked={pinned}
+                      onChange={(e) => setPinned(e.target.checked)}
+                    />
+                    Fixar no topo
+                  </label>
+                </div>
               </div>
 
               <div style={{ marginTop: 12 }}>
