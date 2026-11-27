@@ -719,6 +719,7 @@ export function RotinaApp({
         onEventCreated: (ev) => setEvents((prev) => [...prev, ev]),
         onExpensesCreated: (exps) => setFinanceExpenses((prev) => [...prev, ...exps]),
         onIncomesCreated: (incs) => setFinanceIncomes((prev) => [...prev, ...incs]),
+        onGoalCreated: (goal) => setGoals((prev) => [goal, ...prev]),
       });
 
       setRecadoModal({
@@ -1514,6 +1515,7 @@ export function RotinaApp({
             onIncomesCreated={(incs) =>
               setFinanceIncomes((prev) => [...prev, ...incs])
             }
+            onGoalCreated={(goal) => setGoals((prev) => [goal, ...prev])}
             onNavigate={(target) => setView(target)}
           />
         )}

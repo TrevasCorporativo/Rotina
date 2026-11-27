@@ -11,6 +11,7 @@ import type {
   FinanceExpense,
   FinanceIncome,
   FinanceMonth,
+  Goal,
   Task,
 } from '@/lib/types';
 
@@ -28,6 +29,7 @@ interface TipsViewProps {
   onEventCreated: (ev: CalendarEvent) => void;
   onExpensesCreated: (exps: FinanceExpense[]) => void;
   onIncomesCreated: (incs: FinanceIncome[]) => void;
+  onGoalCreated: (goal: Goal) => void;
   onNavigate: (view: 'tasks' | 'calendar' | 'finance') => void;
 }
 
@@ -74,6 +76,7 @@ export function TipsView({
   onEventCreated,
   onExpensesCreated,
   onIncomesCreated,
+  onGoalCreated,
   onNavigate,
 }: TipsViewProps) {
   const firstName = displayName.split(' ')[0] || 'Você';
@@ -370,6 +373,7 @@ export function TipsView({
         onEventCreated,
         onExpensesCreated,
         onIncomesCreated,
+        onGoalCreated,
       }),
       new Promise((r) => setTimeout(r, 300)),
     ]);

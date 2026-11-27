@@ -3,6 +3,7 @@ import type {
   CalendarEvent,
   FinanceExpense,
   FinanceIncome,
+  Goal,
   Priority,
   Task,
 } from '@/lib/types';
@@ -33,6 +34,7 @@ export interface CopilotContext {
   onEventCreated: (ev: CalendarEvent) => void;
   onExpensesCreated: (exps: FinanceExpense[]) => void;
   onIncomesCreated: (incs: FinanceIncome[]) => void;
+  onGoalCreated?: (goal: Goal) => void;
 }
 
 function formatBRL(v: number) {
@@ -149,6 +151,18 @@ function detectIncomeCategory(norm: string): string {
   return 'Outros';
 }
 
+function detectGoalCategory(norm: string): string {
+  if (/(correr|parque|academia|treino|saude|dieta|peso|caminhada)/.test(norm))
+    return 'Saúde';
+  if (/(dinheiro|reserva|economizar|poupar|investir|quitar|divida|pagar)/.test(norm))
+    return 'Financeiro';
+  if (/(curso|estudar|livro|ler|faculdade|ingles|prova)/.test(norm)) return 'Estudos';
+  if (/(trabalho|emprego|promocao|projeto|carreira|empresa)/.test(norm))
+    return 'Carreira';
+  if (/(igreja|orar|biblia|culto|jejum|espiritual)/.test(norm)) return 'Espiritual';
+  return 'Pessoal';
+}
+
 function cleanTitle(raw: string, fallback: string): string {
   const cleaned = raw
     .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, ' ')
@@ -184,6 +198,7 @@ export async function processCopilotCommand(
     onEventCreated,
     onExpensesCreated,
     onIncomesCreated,
+    onGoalCreated,
   } = ctx;
 
   // 1. Reports
@@ -359,6 +374,37 @@ export async function processCopilotCommand(
       .split('-')
       .reverse()
       .join('/')} às ${eventTime} (com notificação automática).`;
+  }
+
+  // 4.5 Action: Create Goal ("meta")
+  if (isCreateAction && /\bmeta\b/.test(q)) {
+    const targetDate = extractDate(q, todayStr);
+    const category = detectGoalCategory(q);
+    const title = cleanTitle(promptText, 'Nova meta');
+
+    const { data, error } = await supabase
+      .from('goals')
+      .insert({
+        user_id: userId,
+        title,
+        category,
+        target_date: targetDate,
+        progress: 0,
+        done: false,
+        notes: null,
+      })
+      .select('*')
+      .single();
+
+    if (error || !data) {
+      return 'Não consegui criar essa meta agora. Tente novamente!';
+    }
+
+    onGoalCreated?.(data as Goal);
+    return `Meta criada!\n• "${title}" (${category}) com data alvo em ${targetDate
+      .split('-')
+      .reverse()
+      .join('/')}.`;
   }
 
   // 5. Action: Create Task (explicit "tarefa/lembrete" OR create verb with a date when not expense/income/event)
