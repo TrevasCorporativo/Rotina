@@ -77,9 +77,21 @@ function extractRecurrenceMonths(norm: string): number {
   return 1;
 }
 
+const WEEKDAY_MAP: Array<[RegExp, number]> = [
+  [/\bdomingo\b/, 0],
+  [/\bsegunda(?:-feira)?\b/, 1],
+  [/\bterca(?:-feira)?\b/, 2],
+  [/\bquarta(?:-feira)?\b/, 3],
+  [/\bquinta(?:-feira)?\b/, 4],
+  [/\bsexta(?:-feira)?\b/, 5],
+  [/\bsabado\b/, 6],
+];
+
 function extractDate(norm: string, todayStr: string): string {
+  if (norm.includes('depois de amanha')) return addDaysStr(todayStr, 2);
   if (norm.includes('amanha')) return addDaysStr(todayStr, 1);
   if (norm.includes('hoje')) return todayStr;
+
   const dm = norm.match(/\b(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\b/);
   if (dm) {
     const day = String(Number(dm[1])).padStart(2, '0');
@@ -91,6 +103,18 @@ function extractDate(norm: string, todayStr: string): string {
       : todayStr.slice(0, 4);
     return `${year}-${month}-${day}`;
   }
+
+  for (const [regex, targetDow] of WEEKDAY_MAP) {
+    if (regex.test(norm)) {
+      const currentDow = new Date(`${todayStr}T12:00:00`).getDay();
+      let diff = (targetDow - currentDow + 7) % 7;
+      if (diff === 0 && /\b(proxim[ao]|que vem)\b/.test(norm)) {
+        diff = 7;
+      }
+      return addDaysStr(todayStr, diff);
+    }
+  }
+
   return todayStr;
 }
 
@@ -132,7 +156,7 @@ function cleanTitle(raw: string, fallback: string): string {
     .replace(/(?:r\$\s*)?\d+(?:[.,]\d{1,2})?/gi, ' ')
     .replace(/\b\d{1,2}\s*(?:mes|meses|mês|x)\b/gi, ' ')
     .replace(
-      /\b(severino|lan[cç][aeo]|lan[cç]ar|adicion[ae]|adicionar|cri[ae]|criar|coloc[ae]|colocar|registr[ae]|registrar|marc[ae]|marcar|agend[ae]|agendar|agenda|novo|nova|um|uma|para|pra|pro|de|do|da|dos|das|no|na|nos|nas|em|com|por|durante|hoje|amanh[aã]|fixo|fixa|mensal|gasto|despesa|conta|receita|renda|sal[aá]rio|tarefa|compromisso|evento|meta|reais|r\$|as|às|aos|data|dia|hora|hor[aá]rio|valor|vencimento|categoria|prioridade|alta|m[eé]dia|baixa|urgente|local|obs|observa[cç][aã]o)\b/gi,
+      /\b(severino|lan[cç][aeo]|lan[cç]ar|adicion[ae]|adicionar|cri[ae]|criar|coloc[ae]|colocar|registr[ae]|registrar|marc[ae]|marcar|agend[ae]|agendar|agenda|novo|nova|um|uma|para|pra|pro|de|do|da|dos|das|no|na|nos|nas|em|com|por|durante|hoje|amanh[aã]|depois|esse|essa|este|esta|pr[oó]xim[ao]|que|é|domingo|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|feira|fixo|fixa|mensal|gasto|despesa|conta|receita|renda|sal[aá]rio|tarefa|compromisso|evento|meta|reais|r\$|as|às|aos|data|dia|hora|hor[aá]rio|valor|vencimento|categoria|prioridade|alta|m[eé]dia|baixa|urgente|local|obs|observa[cç][aã]o)\b/gi,
       ' '
     )
     .replace(/[,:;!?\-–—]+/g, ' ')
@@ -339,7 +363,9 @@ export async function processCopilotCommand(
 
   // 5. Action: Create Task (explicit "tarefa/lembrete" OR create verb with a date when not expense/income/event)
   const hasDateMention =
-    /\b(hoje|amanha)\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/.test(q);
+    /\b(hoje|amanha|domingo|segunda|terca|quarta|quinta|sexta|sabado)\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/.test(
+      q
+    );
   if (
     isCreateAction &&
     (/(tarefa|lembrete|afazer|lembrar)/.test(q) || hasDateMention)
