@@ -496,6 +496,7 @@ export function RotinaApp({
 
   const openCount = tasks.filter((t) => !t.done).length;
   const doneCount = tasks.filter((t) => t.done).length;
+  const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
   const todayEventsCount = events.filter((e) =>
     doesEventOccurOnDate(e, todayStr)
   ).length;
@@ -504,7 +505,10 @@ export function RotinaApp({
   const billsDueTodayCount = financeExpenses.filter(
     (e) => !e.paid && e.month_key === currentMonthKey && e.due_day === todayDay
   ).length;
-  const pct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
+  const todayGoalsCount = goals.filter(
+    (g) => !g.done && g.target_date === todayStr
+  ).length;
+  const doneGoalsCount = goals.filter((g) => g.done).length;
 
   const dashTasks = useMemo(() => {
     return tasks
@@ -1054,8 +1058,10 @@ export function RotinaApp({
                   <span className="stat-label">Abertas</span>
                   <span className="stat-icon">☑</span>
                 </div>
-                <strong>{openCount}</strong>
-                <small>Pendentes</small>
+                <div className="stat-bottom">
+                  <strong>{openCount}</strong>
+                  <small>Pendentes</small>
+                </div>
               </div>
               <div
                 className="stat"
@@ -1079,8 +1085,10 @@ export function RotinaApp({
                     ◷
                   </span>
                 </div>
-                <strong>{todayEventsCount}</strong>
-                <small>Hoje</small>
+                <div className="stat-bottom">
+                  <strong>{todayEventsCount}</strong>
+                  <small>Hoje</small>
+                </div>
               </div>
               <div
                 className="stat"
@@ -1104,11 +1112,13 @@ export function RotinaApp({
                     $
                   </span>
                 </div>
-                <strong>{billsDueTodayCount}</strong>
-                <small>Vencem hoje</small>
+                <div className="stat-bottom">
+                  <strong>{billsDueTodayCount}</strong>
+                  <small>Vencem hoje</small>
+                </div>
               </div>
               <div
-                className="stat stat-progress-card"
+                className="stat"
                 role="button"
                 tabIndex={0}
                 style={{ cursor: 'pointer' }}
@@ -1121,11 +1131,13 @@ export function RotinaApp({
                 }}
               >
                 <div className="stat-top">
-                  <span className="stat-label">Progresso</span>
-                  <span className="stat-icon">↗</span>
+                  <span className="stat-label">Metas hoje</span>
+                  <span className="stat-icon">◎</span>
                 </div>
-                <strong>{pct}%</strong>
-                <small>Concluído</small>
+                <div className="stat-bottom">
+                  <strong>{todayGoalsCount}</strong>
+                  <small>{doneGoalsCount} concluídas</small>
+                </div>
               </div>
             </div>
 
