@@ -1034,14 +1034,15 @@ export function RotinaApp({
             <div className="stats stats-compact">
               <div className="stat">
                 <div className="stat-top">
-                  Abertas <span className="stat-icon">☑</span>
+                  <span className="stat-label">Abertas</span>
+                  <span className="stat-icon">☑</span>
                 </div>
                 <strong>{openCount}</strong>
                 <small>Pendentes</small>
               </div>
               <div className="stat">
                 <div className="stat-top">
-                  Concluídas{' '}
+                  <span className="stat-label">Concluídas</span>
                   <span
                     className="stat-icon"
                     style={{ background: 'var(--accent-soft)', color: 'var(--accent)' }}
@@ -1054,7 +1055,7 @@ export function RotinaApp({
               </div>
               <div className="stat">
                 <div className="stat-top">
-                  Agenda{' '}
+                  <span className="stat-label">Agenda</span>
                   <span
                     className="stat-icon"
                     style={{ background: 'rgba(223, 147, 66, 0.14)', color: 'var(--orange)' }}
@@ -1067,7 +1068,8 @@ export function RotinaApp({
               </div>
               <div className="stat">
                 <div className="stat-top">
-                  Progresso <span className="stat-icon">↗</span>
+                  <span className="stat-label">Progresso</span>
+                  <span className="stat-icon">↗</span>
                 </div>
                 <strong>{pct}%</strong>
                 <small>Concluído</small>
