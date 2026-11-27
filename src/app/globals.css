@@ -2184,48 +2184,6 @@ button {
   .dash-greeting {
     font-size: 18px;
   }
-  .stats-compact {
-  grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
-  gap: 10px;
-  margin-bottom: 16px;
-}
-
-.stats-compact .stat {
-  padding: 12px 13px;
-}
-
-.stats-compact .stat-top {
-  font-size: 11px;
-  align-items: center;
-  gap: 4px;
-}
-
-.stats-compact .stat-icon {
-  width: 24px;
-  height: 24px;
-  border-radius: 8px;
-  font-size: 12px;
-}
-
-.stats-compact .stat strong {
-  font-size: 21px;
-  margin-top: 5px;
-}
-
-.dash-head-compact {
-  margin-bottom: 14px;
-  padding: 15px 18px;
-  border-radius: 18px;
-  background: var(--welcome-bg);
-  border: 1px solid var(--welcome-border);
-}
-
-.dash-greeting {
-  font-size: 21px;
-  font-weight: 750;
-  letter-spacing: -0.6px;
-  margin: 4px 0 3px;
-}
 
 .stat {
     padding: 13px;
