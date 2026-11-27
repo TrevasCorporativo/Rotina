@@ -1402,7 +1402,7 @@ export function RotinaApp({
                             />
                           ) : (
                             <span
-                              className={`prio-kind-dot kind-${item.kind}`}
+                              className={`prio-kind-dot ${isUrgent ? 'urgent' : ''}`}
                               aria-hidden="true"
                             >
                               {item.kind === 'finance'
@@ -1415,11 +1415,9 @@ export function RotinaApp({
                           <div>
                             <div className="task-title">{item.title}</div>
                             <div className="task-meta">
-                              <span className={`tag kind-tag-${item.kind}`}>
-                                {typeLabel}
-                              </span>
+                              <span className="tag prio-type">{typeLabel}</span>
                               <span
-                                className={`tag ${isUrgent ? 'high' : 'low'}`}
+                                className={`tag ${isUrgent ? 'high' : 'prio-ok'}`}
                               >
                                 {whenLabel}
                               </span>
