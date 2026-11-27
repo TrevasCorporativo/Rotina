@@ -35,7 +35,7 @@ import { GoalsView } from './GoalsView';
 import { ProfileView } from './ProfileView';
 import { TipsView } from './TipsView';
 
-type ViewId =
+export type ViewId =
   | 'dashboard'
   | 'tasks'
   | 'calendar'
@@ -44,7 +44,18 @@ type ViewId =
   | 'tips'
   | 'profile';
 
+const VIEW_PATHS: Record<ViewId, string> = {
+  dashboard: '/',
+  tasks: '/tarefas',
+  calendar: '/agenda',
+  goals: '/metas',
+  finance: '/financeiro',
+  tips: '/severino',
+  profile: '/perfil',
+};
+
 interface RotinaAppProps {
+  initialView?: ViewId;
   initialProfile: Profile;
   initialTasks: Task[];
   initialEvents: CalendarEvent[];
@@ -78,6 +89,7 @@ function fmtDate(
 }
 
 export function RotinaApp({
+  initialView = 'dashboard',
   initialProfile,
   initialTasks,
   initialEvents,
@@ -99,7 +111,19 @@ export function RotinaApp({
     initialFinanceIncomes
   );
 
-  const [view, setView] = useState<ViewId>('dashboard');
+  const [view, setViewState] = useState<ViewId>(initialView);
+
+  useEffect(() => {
+    queueMicrotask(() => setViewState(initialView));
+  }, [initialView]);
+
+  function setView(nextView: ViewId) {
+    setViewState(nextView);
+    const targetPath = VIEW_PATHS[nextView];
+    if (window.location.pathname !== targetPath) {
+      router.push(targetPath);
+    }
+  }
   const [dashFilter, setDashFilter] = useState<'all' | 'today' | 'open'>('all');
   const [taskFilter, setTaskFilter] = useState<'all' | 'open' | 'done'>('all');
 
@@ -176,8 +200,8 @@ export function RotinaApp({
 
     const params = new URLSearchParams(window.location.search);
     const v = params.get('view');
-    if (v === 'tasks' || v === 'calendar' || v === 'finance' || v === 'tips' || v === 'profile') {
-      queueMicrotask(() => setView(v));
+    if (v === 'tasks' || v === 'calendar' || v === 'goals' || v === 'finance' || v === 'tips' || v === 'profile') {
+      queueMicrotask(() => setViewState(v));
     }
 
     const rt = params.get('rt');
@@ -189,7 +213,7 @@ export function RotinaApp({
           body: rb || '',
         })
       );
-      window.history.replaceState({}, '', window.location.pathname + (v ? `?view=${v}` : ''));
+      window.history.replaceState({}, '', window.location.pathname);
     }
 
     if (isPushSupported()) {

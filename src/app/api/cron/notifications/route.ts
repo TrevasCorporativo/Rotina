@@ -190,7 +190,7 @@ async function handleDispatch(request: Request) {
       const delivered = await sendToUserDevices(admin, subs, {
         title: `Compromisso: ${ev.title}`,
         body: bodyParts.join(' · '),
-        url: '/?view=calendar',
+        url: '/agenda',
         tag: `event-${ev.id}-${targetDate}`,
       });
 
@@ -257,7 +257,7 @@ async function handleDispatch(request: Request) {
             body: `${task.category}${
               task.due_time ? ` · ${task.due_time.slice(0, 5)}` : ' · Hoje'
             }`,
-            url: '/?view=tasks',
+            url: '/tarefas',
             tag: `task-${task.id}-${preset}`,
           });
           if (delivered > 0) {
