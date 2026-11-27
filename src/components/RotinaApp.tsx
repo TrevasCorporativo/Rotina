@@ -112,16 +112,26 @@ export function RotinaApp({
   );
 
   const [view, setViewState] = useState<ViewId>(initialView);
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
   useEffect(() => {
-    queueMicrotask(() => setViewState(initialView));
-  }, [initialView]);
+    const onPopState = () => {
+      const path = window.location.pathname;
+      const matched = (Object.entries(VIEW_PATHS) as Array<[ViewId, string]>).find(
+        ([, p]) => p === path
+      );
+      setViewState(matched ? matched[0] : 'dashboard');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   function setView(nextView: ViewId) {
     setViewState(nextView);
+    setMobileDrawerOpen(false);
     const targetPath = VIEW_PATHS[nextView];
     if (window.location.pathname !== targetPath) {
-      router.push(targetPath);
+      window.history.pushState(null, '', targetPath);
     }
   }
   const [dashFilter, setDashFilter] = useState<'all' | 'today' | 'open'>('all');
@@ -751,6 +761,15 @@ export function RotinaApp({
             <BrandLogo size={36} />
             <span className="brand-text">Modo Sobrevivência</span>
           </div>
+          <button
+            type="button"
+            className="mobile-menu-btn"
+            onClick={() => setMobileDrawerOpen(true)}
+            title="Abrir menu"
+            aria-label="Abrir menu lateral"
+          >
+            ☰
+          </button>
           <button
             type="button"
             className="sidebar-collapse-btn"
@@ -1465,29 +1484,8 @@ export function RotinaApp({
         </footer>
       </main>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Mobile Bottom Navigation (5 items, Agenda highlighted in center) */}
       <nav className="mobile-bottom-nav" aria-label="Navegação mobile">
-        <button
-          className={view === 'dashboard' ? 'active' : ''}
-          onClick={() => setView('dashboard')}
-        >
-          <span>◫</span>
-          <small>Início</small>
-        </button>
-        <button
-          className={view === 'tasks' ? 'active' : ''}
-          onClick={() => setView('tasks')}
-        >
-          <span>☑</span>
-          <small>Tarefas</small>
-        </button>
-        <button
-          className={view === 'calendar' ? 'active' : ''}
-          onClick={() => setView('calendar')}
-        >
-          <span>▦</span>
-          <small>Agenda</small>
-        </button>
         <button
           className={view === 'goals' ? 'active' : ''}
           onClick={() => setView('goals')}
@@ -1503,20 +1501,131 @@ export function RotinaApp({
           <small>Finanças</small>
         </button>
         <button
+          className={`nav-center-agenda ${view === 'calendar' ? 'active' : ''}`}
+          onClick={() => setView('calendar')}
+        >
+          <span className="agenda-center-pill">▦</span>
+          <small>Agenda</small>
+        </button>
+        <button
+          className={view === 'tasks' ? 'active' : ''}
+          onClick={() => setView('tasks')}
+        >
+          <span>☑</span>
+          <small>Tarefas</small>
+        </button>
+        <button
           className={view === 'tips' ? 'active' : ''}
           onClick={() => setView('tips')}
         >
           <span className="severino-nav-ico">✦</span>
           <small>Severino</small>
         </button>
-        <button
-          className={view === 'profile' ? 'active' : ''}
-          onClick={() => setView('profile')}
-        >
-          <span>☺</span>
-          <small>Perfil</small>
-        </button>
       </nav>
+
+      {/* Mobile Collapsible Drawer (starts closed) */}
+      {mobileDrawerOpen && (
+        <div
+          className="mobile-drawer-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setMobileDrawerOpen(false);
+          }}
+        >
+          <aside className="mobile-drawer">
+            <div className="sidebar-top" style={{ marginBottom: 18 }}>
+              <div className="brand">
+                <BrandLogo size={34} />
+                <span>Modo Sobrevivência</span>
+              </div>
+              <button
+                type="button"
+                className="close"
+                onClick={() => setMobileDrawerOpen(false)}
+                aria-label="Fechar menu"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="nav-label">ESPAÇO PESSOAL</div>
+            <nav className="nav" style={{ marginBottom: 20 }}>
+              <button
+                className={view === 'dashboard' ? 'active' : ''}
+                onClick={() => setView('dashboard')}
+              >
+                <span className="ico">◫</span>
+                <span>Visão geral</span>
+              </button>
+              <button
+                className={view === 'tasks' ? 'active' : ''}
+                onClick={() => setView('tasks')}
+              >
+                <span className="ico">☑</span>
+                <span>Minhas tarefas</span>
+              </button>
+              <button
+                className={view === 'calendar' ? 'active' : ''}
+                onClick={() => setView('calendar')}
+              >
+                <span className="ico">▦</span>
+                <span>Agenda</span>
+              </button>
+              <button
+                className={view === 'goals' ? 'active' : ''}
+                onClick={() => setView('goals')}
+              >
+                <span className="ico">◎</span>
+                <span>Metas</span>
+              </button>
+              <button
+                className={view === 'finance' ? 'active' : ''}
+                onClick={() => setView('finance')}
+              >
+                <span className="ico">＄</span>
+                <span>Financeiro</span>
+              </button>
+              <button
+                className={view === 'tips' ? 'active' : ''}
+                onClick={() => setView('tips')}
+              >
+                <span className="ico">✦</span>
+                <span>Severino</span>
+              </button>
+            </nav>
+
+            <div className="sidebar-footer">
+              <div className="sidebar-user-row">
+                <button
+                  type="button"
+                  className={`sidebar-profile-btn ${view === 'profile' ? 'active' : ''}`}
+                  onClick={() => setView('profile')}
+                >
+                  <div className="avatar" style={{ width: 34, height: 34, fontSize: 12 }}>
+                    {profile.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={profile.avatar_url} alt={profile.display_name} />
+                    ) : (
+                      initials
+                    )}
+                  </div>
+                  <div className="sidebar-profile-info">
+                    <strong>{profile.display_name}</strong>
+                    <span>Meu perfil</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  className="sidebar-logout-btn"
+                  onClick={handleLogout}
+                  title="Sair"
+                >
+                  ↗
+                </button>
+              </div>
+            </div>
+          </aside>
+        </div>
+      )}
 
       {modalMode && (
         <EntryModal
