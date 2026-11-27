@@ -127,15 +127,15 @@ function detectIncomeCategory(norm: string): string {
 
 function cleanTitle(raw: string, fallback: string): string {
   const cleaned = raw
-    .replace(
-      /\b(severino|lan[cç][aeo]|lan[cç]ar|adicion[ae]|adicionar|cri[ae]|criar|coloc[ae]|colocar|registr[ae]|registrar|marc[ae]|marcar|agend[ae]|agendar|agenda|novo|nova|um|uma|para|pra|de|do|da|no|na|em|com|por|durante|hoje|amanh[aã]|fixo|fixa|mensal|gasto|despesa|conta|receita|renda|sal[aá]rio|tarefa|compromisso|evento|reais|r\$|as|às|alta|m[eé]dia|baixa|urgente)\b/gi,
-      ' '
-    )
     .replace(/\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/g, ' ')
     .replace(/\b\d{1,2}[:h]\d{0,2}\b/gi, ' ')
-    .replace(/\b\d+(?:[.,]\d{1,2})?\b/g, ' ')
+    .replace(/(?:r\$\s*)?\d+(?:[.,]\d{1,2})?/gi, ' ')
     .replace(/\b\d{1,2}\s*(?:mes|meses|mês|x)\b/gi, ' ')
-    .replace(/[,:;!?]+/g, ' ')
+    .replace(
+      /\b(severino|lan[cç][aeo]|lan[cç]ar|adicion[ae]|adicionar|cri[ae]|criar|coloc[ae]|colocar|registr[ae]|registrar|marc[ae]|marcar|agend[ae]|agendar|agenda|novo|nova|um|uma|para|pra|pro|de|do|da|dos|das|no|na|nos|nas|em|com|por|durante|hoje|amanh[aã]|fixo|fixa|mensal|gasto|despesa|conta|receita|renda|sal[aá]rio|tarefa|compromisso|evento|meta|reais|r\$|as|às|aos|data|dia|hora|hor[aá]rio|valor|vencimento|categoria|prioridade|alta|m[eé]dia|baixa|urgente|local|obs|observa[cç][aã]o)\b/gi,
+      ' '
+    )
+    .replace(/[,:;!?\-–—]+/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
 
@@ -337,8 +337,13 @@ export async function processCopilotCommand(
       .join('/')} às ${eventTime} (com notificação automática).`;
   }
 
-  // 5. Action: Create Task
-  if (isCreateAction && /(tarefa|lembrete|afazer|lembrar)/.test(q)) {
+  // 5. Action: Create Task (explicit "tarefa/lembrete" OR create verb with a date when not expense/income/event)
+  const hasDateMention =
+    /\b(hoje|amanha)\b|\b\d{1,2}\/\d{1,2}(?:\/\d{2,4})?\b/.test(q);
+  if (
+    isCreateAction &&
+    (/(tarefa|lembrete|afazer|lembrar)/.test(q) || hasDateMention)
+  ) {
     const dueDate = extractDate(q, todayStr);
     const dueTime = extractTime(q) ?? '09:00';
     const priority: Priority = /(alta|urgente)/.test(q)
