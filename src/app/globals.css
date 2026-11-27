@@ -1129,7 +1129,7 @@ button {
 
 .event {
   display: grid;
-  grid-template-columns: 54px 3px minmax(0, 1fr) auto;
+  grid-template-columns: 68px 3px minmax(0, 1fr) auto;
   gap: 11px;
   align-items: stretch;
 }
@@ -2297,7 +2297,7 @@ button {
     gap: 12px;
   }
   .event {
-    grid-template-columns: 44px 3px minmax(0, 1fr) auto;
+    grid-template-columns: 62px 3px minmax(0, 1fr) auto;
     gap: 8px;
   }
   .mobile-refresh-btn {

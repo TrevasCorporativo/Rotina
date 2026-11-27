@@ -80,6 +80,20 @@ function fmtDate(
   return new Date(`${s}T12:00:00`).toLocaleDateString('pt-BR', opts);
 }
 
+function fmtUpcomingDay(dateStr: string, todayStr: string): string {
+  if (dateStr === todayStr) return 'Hoje';
+  const d = new Date(`${todayStr}T12:00:00`);
+  d.setDate(d.getDate() + 1);
+  if (dateStr === localDate(d)) return 'Amanhã';
+  const raw = new Date(`${dateStr}T12:00:00`).toLocaleDateString('pt-BR', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+  });
+  const cleaned = raw.replace('.', '');
+  return cleaned.charAt(0).toUpperCase() + cleaned.slice(1);
+}
+
 export function RotinaApp({
   initialView = 'dashboard',
   initialProfile,
@@ -1135,9 +1149,9 @@ export function RotinaApp({
                           }}
                         >
                           <div className="event-time">
-                            {ev.event_time.slice(0, 5)}
+                            <strong>{ev.event_time.slice(0, 5)}</strong>
                             <br />
-                            {fmtDate(ev.event_date)}
+                            {fmtUpcomingDay(ev.event_date, todayStr)}
                           </div>
                           <div className="event-bar" />
                           <div>
