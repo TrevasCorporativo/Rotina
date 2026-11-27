@@ -38,9 +38,21 @@ export function ProfileView({
   const [pushActive, setPushActive] = useState(false);
   const [pushLoading, setPushLoading] = useState(false);
   const [wakeWordEnabled, setWakeWordEnabled] = useState(false);
+  const [wakeStatus, setWakeStatus] = useState<string>('off');
 
   useEffect(() => {
     let active = true;
+    const initialStatus = (window as unknown as Record<string, unknown>).__rotinaWakeStatus;
+    if (typeof initialStatus === 'string') {
+      queueMicrotask(() => {
+        if (active) setWakeStatus(initialStatus);
+      });
+    }
+    const onWakeStatus = (ev: Event) => {
+      const detail = (ev as CustomEvent<string>).detail;
+      if (active && typeof detail === 'string') setWakeStatus(detail);
+    };
+    window.addEventListener('rotina-wake-status', onWakeStatus);
     Promise.resolve().then(async () => {
       if (active) {
         setWakeWordEnabled(localStorage.getItem('rotina_wake_word') === '1');
@@ -59,6 +71,7 @@ export function ProfileView({
     });
     return () => {
       active = false;
+      window.removeEventListener('rotina-wake-status', onWakeStatus);
     };
   }, []);
 
@@ -419,19 +432,16 @@ export function ProfileView({
                 type="checkbox"
                 className="check"
                 checked={wakeWordEnabled}
-                onChange={async (e) => {
+                onChange={(e) => {
                   const next = e.target.checked;
                   if (next) {
-                    try {
-                      if (navigator.mediaDevices?.getUserMedia) {
-                        const stream = await navigator.mediaDevices.getUserMedia({
-                          audio: true,
-                        });
-                        stream.getTracks().forEach((t) => t.stop());
-                      }
-                    } catch {
+                    const w = window as unknown as {
+                      SpeechRecognition?: unknown;
+                      webkitSpeechRecognition?: unknown;
+                    };
+                    if (!w.SpeechRecognition && !w.webkitSpeechRecognition) {
                       onToast(
-                        'Permissão de microfone negada. Libere o microfone nas configurações do navegador.'
+                        'Seu navegador não suporta reconhecimento de voz contínuo.'
                       );
                       return;
                     }
@@ -441,13 +451,36 @@ export function ProfileView({
                   window.dispatchEvent(new Event('rotina-wake-word-changed'));
                   onToast(
                     next
-                      ? 'Escuta "Severino" ativada!'
+                      ? 'Escuta "Severino" ativada! Pode falar "Severino".'
                       : 'Escuta contínua desativada.'
                   );
                 }}
               />
               Ativar escuta contínua ao falar &ldquo;Severino&rdquo; (com o site aberto)
             </label>
+            {wakeWordEnabled && (
+              <p
+                style={{
+                  fontSize: 12,
+                  margin: '0 0 8px',
+                  color:
+                    wakeStatus === 'listening'
+                      ? '#10b981'
+                      : wakeStatus === 'denied' || wakeStatus === 'unsupported'
+                      ? '#ef4444'
+                      : '#f59e0b',
+                  fontWeight: 600,
+                }}
+              >
+                {wakeStatus === 'listening'
+                  ? '● Ouvindo "Severino" agora (com o site aberto)'
+                  : wakeStatus === 'denied'
+                  ? '● Permissão de microfone negada nas configurações do navegador'
+                  : wakeStatus === 'unsupported'
+                  ? '● Navegador sem suporte a reconhecimento de voz contínuo'
+                  : '● Toque na tela para iniciar a escuta do microfone'}
+              </p>
+            )}
             <p className="muted" style={{ fontSize: 11, margin: 0 }}>
               Por segurança do iPhone/Android, nenhum site pode usar o microfone com o
               navegador fechado. Para abrir direto com a tela bloqueada no iPhone, crie
