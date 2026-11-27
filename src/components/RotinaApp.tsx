@@ -1087,7 +1087,7 @@ export function RotinaApp({
               onClick={() => setView('lab')}
               title="Laboratório"
             >
-              <span className="ico">🛡️</span>
+              <span className="ico">◈</span>
               <span className="nav-text">Laboratório</span>
             </button>
             <button
@@ -2028,7 +2028,7 @@ export function RotinaApp({
                 className={view === 'lab' ? 'active' : ''}
                 onClick={() => setView('lab')}
               >
-                <span className="ico">🛡️</span>
+                <span className="ico">◈</span>
                 <span>Laboratório</span>
               </button>
               <button

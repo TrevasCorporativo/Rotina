@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Flame,
-  HeartHandshake,
   RefreshCw,
-  ShieldCheck,
-  Sparkles,
   Trash2,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -50,7 +49,11 @@ export function LabView({
 }: LabViewProps) {
   const supabase = createClient();
   const [nowMs, setNowMs] = useState(() => Date.now());
+  const [activeTab, setActiveTab] = useState<'tracks' | 'journal' | 'milestones'>(
+    'tracks'
+  );
   const [cardIdx, setCardIdx] = useState(0);
+  const [expandedTrackId, setExpandedTrackId] = useState<string | null>(null);
 
   // Create / Edit modal
   const [modalOpen, setModalOpen] = useState(false);
@@ -90,31 +93,23 @@ export function LabView({
   const activeCard = CONFRONTATION_CARDS[cardIdx % CONFRONTATION_CARDS.length];
   const rescueCard = CONFRONTATION_CARDS[rescueCardIdx % CONFRONTATION_CARDS.length];
 
-  const totalVictories = useMemo(
-    () =>
-      logs.filter(
-        (l) => l.log_type === 'victory' || l.log_type === 'temptation_overcome'
-      ).length,
-    [logs]
-  );
-
   function openCreate(preset?: 'pornografia' | 'redes') {
     setEditingTrack(null);
     if (preset === 'pornografia') {
       setTitle('Pornografia');
       setCategory('Pureza');
       setWhyStatement(
-        'Quero honrar a Deus com meu corpo e mente, ser um homem íntegro no secreto e presente para minha esposa e família.'
+        'Honrar a Deus com meu corpo e mente, ser um homem íntegro no secreto e presente para minha esposa e família.'
       );
       setTriggers('Celular à noite no quarto, tédio, estresse, cansaço, solidão');
       setReplacementAction(
         'Deixar o celular na sala, lavar o rosto com água fria, fazer 20 flexões e orar o Salmo 51.'
       );
     } else if (preset === 'redes') {
-      setTitle('Uso excessivo de telas / redes');
+      setTitle('Telas e redes sociais');
       setCategory('Digital');
-      setWhyStatement('Quero recuperar meu tempo, foco e paz mental.');
-      setTriggers('Ansiedade, procrastinação, acordar e pegar o celular');
+      setWhyStatement('Recuperar meu tempo, foco e paz mental.');
+      setTriggers('Ansiedade, procrastinação, pegar o celular ao acordar');
       setReplacementAction('Colocar o celular longe e ler 5 páginas ou caminhar.');
     } else {
       setTitle('');
@@ -186,13 +181,11 @@ export function LabView({
           .single();
 
         if (error || !data) {
-          onToast(
-            'Erro ao salvar. Verifique se a migration 0009_laboratory_habits.sql foi executada no Supabase.'
-          );
+          onToast('Erro ao salvar frente.');
           return;
         }
         onTracksChange((prev) => [data as RecoveryTrack, ...prev]);
-        onToast('Frente de limpeza iniciada! Um dia de cada vez.');
+        onToast('Frente iniciada! Um dia de cada vez.');
       }
       setModalOpen(false);
     } finally {
@@ -258,7 +251,7 @@ export function LabView({
       if (logRow) onLogsChange((prev) => [logRow as RecoveryLog, ...prev]);
     }
     setRescueOpen(false);
-    onToast('Você venceu esse impulso! Sua integridade vale muito.');
+    onToast('Você venceu esse impulso!');
   }
 
   async function handleConfirmRelapse(e: React.FormEvent) {
@@ -305,7 +298,7 @@ export function LabView({
     if (logRow) onLogsChange((prev) => [logRow as RecoveryLog, ...prev]);
     setRelapseTrack(null);
     setRelapseNote('');
-    onToast('Recomeço registrado. A graça te levanta — não fique no chão.');
+    onToast('Recomeço registrado. A graça te levanta — siga em frente.');
   }
 
   async function handleDeleteTrack(id: string) {
@@ -340,286 +333,277 @@ export function LabView({
     }
     onLogsChange((prev) => [data as RecoveryLog, ...prev]);
     setReflectionText('');
-    onToast('Compromisso registrado!');
+    onToast('Registro salvo!');
   }
 
   return (
-    <section>
+    <section className="lab-page">
       <div className="page-head">
         <div>
           <div className="eyebrow">DOMÍNIO PRÓPRIO, FÉ E CARÁTER</div>
           <h1>Laboratório</h1>
           <p className="subtitle">
-            Ambiente privado de tratamento, confronto na verdade e reconstrução diária.
+            Tratamento, verdade e domínio próprio — um dia de cada vez.
           </p>
         </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="lab-head-actions">
           <button
             type="button"
-            className="btn"
-            style={{ background: 'var(--red)', color: '#fff' }}
+            className="btn lab-rescue-btn"
             onClick={() => openRescue()}
           >
-            <AlertTriangle size={15} style={{ marginRight: 6 }} />
+            <AlertTriangle size={14} />
             Modo Resgate
           </button>
-          <button type="button" className="btn secondary" onClick={() => openCreate()}>
-            ＋ Cadastrar frente
+          <button
+            type="button"
+            className="btn secondary"
+            onClick={() => openCreate()}
+          >
+            ＋ Nova frente
           </button>
         </div>
       </div>
 
       {/* Confrontation & Grace Banner */}
-      <div
-        className="panel"
-        style={{
-          background: 'var(--welcome-bg)',
-          borderColor: 'var(--welcome-border)',
-          marginBottom: 16,
-        }}
-      >
+      <div className="panel lab-confront-panel">
         <div className="panel-head" style={{ marginBottom: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <HeartHandshake size={18} style={{ color: 'var(--accent)' }} />
-            <span className="tag prio-ok">{activeCard.pillar}</span>
-          </div>
+          <span className="tag prio-ok">{activeCard.pillar}</span>
           <button
             type="button"
             className="btn secondary small"
             onClick={() => setCardIdx((i) => (i + 1) % CONFRONTATION_CARDS.length)}
           >
-            <RefreshCw size={12} style={{ marginRight: 5 }} />
-            Outro confronto
+            <RefreshCw size={12} />
+            Trocar
           </button>
         </div>
-        <h2 style={{ margin: '0 0 6px', fontSize: 17 }}>{activeCard.title}</h2>
-        <p style={{ margin: '0 0 8px', fontSize: 13.5, lineHeight: 1.65 }}>
-          {activeCard.message}
-        </p>
+        <h2 className="lab-confront-title">{activeCard.title}</h2>
+        <p className="lab-confront-body">{activeCard.message}</p>
         {activeCard.verse && (
-          <p
-            style={{
-              margin: 0,
-              fontSize: 12,
-              color: 'var(--accent)',
-              fontWeight: 600,
-            }}
-          >
-            📖 {activeCard.verse}
-          </p>
+          <p className="lab-confront-verse">{activeCard.verse}</p>
         )}
       </div>
 
-      {/* Tracks List */}
-      {tracks.length ? (
-        <div className="lab-grid">
-          {tracks.map((track) => {
-            const { days, hours } = computeStreakParts(track.streak_started_at, nowMs);
-            const nextMilestone =
-              RECOVERY_MILESTONES.find((m) => m.days > days) ??
-              RECOVERY_MILESTONES[RECOVERY_MILESTONES.length - 1];
-            const milestonePct = Math.min(
-              100,
-              Math.round((days / nextMilestone.days) * 100)
-            );
-            const checkedToday = track.last_checkin_date === todayStr;
+      {/* Clean Navigation Tabs */}
+      <div className="filter-row" style={{ marginBottom: 14 }}>
+        <button
+          type="button"
+          className={`chip ${activeTab === 'tracks' ? 'active' : ''}`}
+          onClick={() => setActiveTab('tracks')}
+        >
+          Frentes ({tracks.length})
+        </button>
+        <button
+          type="button"
+          className={`chip ${activeTab === 'journal' ? 'active' : ''}`}
+          onClick={() => setActiveTab('journal')}
+        >
+          Diário ({logs.length})
+        </button>
+        <button
+          type="button"
+          className={`chip ${activeTab === 'milestones' ? 'active' : ''}`}
+          onClick={() => setActiveTab('milestones')}
+        >
+          Fases (90d)
+        </button>
+      </div>
 
-            return (
-              <div key={track.id} className="panel" style={{ marginBottom: 0 }}>
-                <div className="panel-head" style={{ marginBottom: 10 }}>
-                  <div>
-                    <span className="tag prio-type" style={{ marginRight: 6 }}>
-                      {track.category}
-                    </span>
-                    <h2 style={{ display: 'inline', fontSize: 16 }}>{track.title}</h2>
-                  </div>
-                  <div style={{ display: 'flex', gap: 4 }}>
-                    <button
-                      type="button"
-                      className="icon-mini-btn"
-                      title="Editar"
-                      onClick={() => openEdit(track)}
-                    >
-                      ✎
-                    </button>
-                    <button
-                      type="button"
-                      className="icon-mini-btn"
-                      title="Remover"
-                      onClick={() => handleDeleteTrack(track.id)}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
+      {activeTab === 'tracks' && (
+        <>
+          {tracks.length ? (
+            <div className="lab-grid">
+              {tracks.map((track) => {
+                const { days, hours } = computeStreakParts(
+                  track.streak_started_at,
+                  nowMs
+                );
+                const nextMilestone =
+                  RECOVERY_MILESTONES.find((m) => m.days > days) ??
+                  RECOVERY_MILESTONES[RECOVERY_MILESTONES.length - 1];
+                const milestonePct = Math.min(
+                  100,
+                  Math.round((days / nextMilestone.days) * 100)
+                );
+                const checkedToday = track.last_checkin_date === todayStr;
+                const isExpanded = expandedTrackId === track.id;
 
-                <div className="lab-streak-box">
-                  <div>
-                    <div className="lab-streak-num">
-                      <Flame size={20} style={{ color: 'var(--accent)' }} />
-                      <strong>
-                        {days} {days === 1 ? 'dia' : 'dias'}
-                      </strong>
-                      <span>e {hours}h limpo</span>
+                return (
+                  <div key={track.id} className="panel lab-track-card">
+                    <div className="panel-head" style={{ marginBottom: 10 }}>
+                      <div className="lab-track-title-wrap">
+                        <span className="tag prio-type">{track.category}</span>
+                        <h2 className="lab-track-title">{track.title}</h2>
+                      </div>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <button
+                          type="button"
+                          className="icon-mini-btn"
+                          title="Editar"
+                          onClick={() => openEdit(track)}
+                        >
+                          ✎
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-mini-btn"
+                          title="Remover"
+                          onClick={() => handleDeleteTrack(track.id)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
                     </div>
-                    <small className="muted">
-                      Recorde pessoal: {Math.max(track.best_streak_days, days)}d · Vitórias
-                      registradas: {totalVictories}
-                    </small>
-                  </div>
-                  <button
-                    type="button"
-                    className={`btn small ${checkedToday ? 'secondary' : ''}`}
-                    onClick={() => handleDailyVictory(track)}
-                  >
-                    <CheckCircle2 size={14} style={{ marginRight: 5 }} />
-                    {checkedToday ? 'Vencido hoje ✓' : 'Hoje eu venci'}
-                  </button>
-                </div>
 
-                <div className="progress-wrap" style={{ marginTop: 10, marginBottom: 12 }}>
-                  <div className="progress-label">
-                    <span>Próximo marco: {nextMilestone.title}</span>
-                    <strong>{milestonePct}%</strong>
-                  </div>
-                  <div className="progress">
-                    <span style={{ width: `${milestonePct}%` }} />
-                  </div>
-                  <small className="muted" style={{ display: 'block', marginTop: 4 }}>
-                    {nextMilestone.desc}
-                  </small>
-                </div>
+                    <div className="lab-streak-box">
+                      <div>
+                        <div className="lab-streak-num">
+                          <Flame size={18} style={{ color: 'var(--accent)' }} />
+                          <strong>
+                            {days} {days === 1 ? 'dia' : 'dias'}
+                          </strong>
+                          <span>e {hours}h limpo</span>
+                        </div>
+                        <small className="muted">
+                          Recorde: {Math.max(track.best_streak_days, days)}d
+                        </small>
+                      </div>
+                      <button
+                        type="button"
+                        className={`btn small ${checkedToday ? 'secondary' : ''}`}
+                        onClick={() => handleDailyVictory(track)}
+                      >
+                        <CheckCircle2 size={14} />
+                        {checkedToday ? 'Vencido hoje' : 'Venci hoje'}
+                      </button>
+                    </div>
 
-                {track.why_statement && (
-                  <div className="lab-detail">
-                    <strong>Meu porquê (aliança):</strong>
-                    <p>{track.why_statement}</p>
-                  </div>
-                )}
-                {track.triggers && (
-                  <div className="lab-detail">
-                    <strong>Gatilhos de alerta:</strong>
-                    <p>{track.triggers}</p>
-                  </div>
-                )}
-                {track.replacement_action && (
-                  <div className="lab-detail">
-                    <strong>Plano imediato de fuga:</strong>
-                    <p>{track.replacement_action}</p>
-                  </div>
-                )}
+                    <div className="progress-wrap" style={{ marginTop: 10, marginBottom: 10 }}>
+                      <div className="progress-label">
+                        <span>{nextMilestone.title}</span>
+                        <strong>{milestonePct}%</strong>
+                      </div>
+                      <div className="progress">
+                        <span style={{ width: `${milestonePct}%` }} />
+                      </div>
+                    </div>
 
-                <div
-                  style={{
-                    display: 'flex',
-                    gap: 8,
-                    marginTop: 12,
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <button
-                    type="button"
-                    className="btn small"
-                    style={{ background: 'var(--red)', color: '#fff' }}
-                    onClick={() => openRescue(track)}
-                  >
-                    <AlertTriangle size={13} style={{ marginRight: 5 }} />
-                    Estou sendo tentado
-                  </button>
-                  <button
-                    type="button"
-                    className="btn secondary small"
-                    onClick={() => {
-                      setRelapseTrack(track);
-                      setRelapseNote('');
-                    }}
-                  >
-                    ↻ Tive uma queda (recomeçar)
-                  </button>
-                </div>
+                    {(track.why_statement ||
+                      track.triggers ||
+                      track.replacement_action) && (
+                      <button
+                        type="button"
+                        className="lab-expand-btn"
+                        onClick={() =>
+                          setExpandedTrackId(isExpanded ? null : track.id)
+                        }
+                      >
+                        <span>Plano e gatilhos</span>
+                        {isExpanded ? (
+                          <ChevronUp size={15} />
+                        ) : (
+                          <ChevronDown size={15} />
+                        )}
+                      </button>
+                    )}
+
+                    {isExpanded && (
+                      <div style={{ marginTop: 8 }}>
+                        {track.why_statement && (
+                          <div className="lab-detail">
+                            <strong>Meu porquê</strong>
+                            <p>{track.why_statement}</p>
+                          </div>
+                        )}
+                        {track.triggers && (
+                          <div className="lab-detail">
+                            <strong>Gatilhos</strong>
+                            <p>{track.triggers}</p>
+                          </div>
+                        )}
+                        {track.replacement_action && (
+                          <div className="lab-detail">
+                            <strong>Plano de fuga</strong>
+                            <p>{track.replacement_action}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <div className="lab-card-actions">
+                      <button
+                        type="button"
+                        className="btn small lab-rescue-btn"
+                        onClick={() => openRescue(track)}
+                      >
+                        <AlertTriangle size={13} />
+                        Preciso de ajuda
+                      </button>
+                      <button
+                        type="button"
+                        className="btn secondary small"
+                        onClick={() => {
+                          setRelapseTrack(track);
+                          setRelapseNote('');
+                        }}
+                      >
+                        Recomeçar
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="panel">
+              <div className="panel-head">
+                <h2>Comece sua jornada de limpeza</h2>
               </div>
-            );
-          })}
-        </div>
-      ) : (
-        <div className="panel">
-          <div className="panel-head">
-            <h2>Comece sua jornada de limpeza</h2>
-          </div>
-          <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
-            Cadastre o hábito ou vício que você quer vencer para ativar o contador de
-            dias limpos, plano de fuga, confrontos diários e o Modo Resgate imediato.
-          </p>
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => openCreate('pornografia')}
-            >
-              🛡️ Iniciar plano: Pornografia (Pureza)
-            </button>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={() => openCreate('redes')}
-            >
-              📵 Iniciar plano: Telas / Redes Sociais
-            </button>
-            <button
-              type="button"
-              className="btn secondary"
-              onClick={() => openCreate()}
-            >
-              ＋ Cadastrar outro vício
-            </button>
-          </div>
-        </div>
+              <p className="muted" style={{ fontSize: 13, marginTop: 0 }}>
+                Cadastre o hábito ou vício que você quer vencer para ativar o contador,
+                plano de fuga e Modo Resgate.
+              </p>
+              <div className="lab-empty-actions">
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={() => openCreate('pornografia')}
+                >
+                  Iniciar plano: Pornografia
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => openCreate('redes')}
+                >
+                  Telas / Redes Sociais
+                </button>
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => openCreate()}
+                >
+                  ＋ Cadastrar outro
+                </button>
+              </div>
+            </div>
+          )}
+        </>
       )}
 
-      {/* Milestones & Journal */}
-      <div className="content-grid" style={{ marginTop: 16 }}>
-        <div className="panel">
-          <div className="panel-head">
-            <h2>Fases da sua limpeza</h2>
-            <ShieldCheck size={16} style={{ color: 'var(--accent)' }} />
-          </div>
-          <div className="task-list">
-            {RECOVERY_MILESTONES.map((m) => (
-              <div key={m.days} className="task" style={{ cursor: 'default' }}>
-                <span className="prio-kind-dot">{m.days}d</span>
-                <div>
-                  <div className="task-title">{m.title}</div>
-                  <div className="task-meta">{m.desc}</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
+      {activeTab === 'journal' && (
         <div className="panel">
           <div className="panel-head">
             <h2>Diário de firmeza</h2>
-            <Sparkles size={16} style={{ color: 'var(--accent)' }} />
           </div>
           {tracks.length > 0 && (
-            <form
-              onSubmit={handleAddReflection}
-              style={{ display: 'flex', gap: 8, marginBottom: 12 }}
-            >
+            <form onSubmit={handleAddReflection} className="lab-journal-form">
               <input
                 type="text"
                 placeholder="Escreva uma oração, alerta ou compromisso de hoje..."
                 value={reflectionText}
                 onChange={(e) => setReflectionText(e.target.value)}
-                style={{
-                  flex: 1,
-                  border: '1px solid var(--line)',
-                  background: 'var(--input-bg)',
-                  borderRadius: 9,
-                  padding: '9px 11px',
-                  color: 'var(--text)',
-                  fontSize: 13,
-                }}
               />
               <button type="submit" className="btn small">
                 Registrar
@@ -628,7 +612,7 @@ export function LabView({
           )}
           <div className="task-list">
             {logs.length ? (
-              logs.slice(0, 8).map((log) => (
+              logs.slice(0, 15).map((log) => (
                 <div key={log.id} className="task" style={{ cursor: 'default' }}>
                   <span
                     className={`prio-kind-dot ${
@@ -638,7 +622,7 @@ export function LabView({
                     {log.log_type === 'victory'
                       ? '✓'
                       : log.log_type === 'temptation_overcome'
-                      ? '🛡️'
+                      ? '◈'
                       : log.log_type === 'relapse'
                       ? '↻'
                       : '✎'}
@@ -665,7 +649,26 @@ export function LabView({
             )}
           </div>
         </div>
-      </div>
+      )}
+
+      {activeTab === 'milestones' && (
+        <div className="panel">
+          <div className="panel-head">
+            <h2>Fases da sua limpeza</h2>
+          </div>
+          <div className="task-list">
+            {RECOVERY_MILESTONES.map((m) => (
+              <div key={m.days} className="task" style={{ cursor: 'default' }}>
+                <span className="prio-kind-dot">{m.days}d</span>
+                <div>
+                  <div className="task-title">{m.title}</div>
+                  <div className="task-meta">{m.desc}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Create / Edit Modal */}
       {modalOpen && (
@@ -731,14 +734,16 @@ export function LabView({
                 <label htmlFor="labTriggers">Gatilhos que costumam te derrubar</label>
                 <input
                   id="labTriggers"
-                  placeholder="Ex: Celular na cama, tédio, estresse, ficar sozinho..."
+                  placeholder="Ex: Celular na cama, tédio, estresse..."
                   value={triggers}
                   onChange={(e) => setTriggers(e.target.value)}
                 />
               </div>
 
               <div className="field">
-                <label htmlFor="labAction">O que fazer imediatamente na hora da tentação</label>
+                <label htmlFor="labAction">
+                  O que fazer imediatamente na hora da tentação
+                </label>
                 <textarea
                   id="labAction"
                   rows={2}
@@ -773,9 +778,9 @@ export function LabView({
             if (e.target === e.currentTarget) setRescueOpen(false);
           }}
         >
-          <div className="modal" style={{ maxWidth: 540 }}>
+          <div className="modal" style={{ maxWidth: 520 }}>
             <div className="modal-head">
-              <h2 style={{ color: 'var(--red)' }}>🚨 Modo Resgate · Não negocie agora</h2>
+              <h2 style={{ color: 'var(--red)' }}>Modo Resgate · Não negocie agora</h2>
               <button
                 type="button"
                 className="close"
@@ -790,8 +795,8 @@ export function LabView({
                 <strong>{rescueSeconds}s</strong>
                 <span>
                   {rescueSeconds > 0
-                    ? 'Respire fundo (4s inspira · 4s segura · 4s solta). O pico da onda passa em minutos.'
-                    : 'Tempo concluído. Sua mente já desacelerou — agora saia do ambiente!'}
+                    ? 'Respire fundo (4s inspira · 4s segura · 4s solta). O pico do impulso passa em minutos.'
+                    : 'Sua mente já desacelerou — saia do ambiente agora.'}
                 </span>
               </div>
               <button
@@ -803,23 +808,8 @@ export function LabView({
               </button>
             </div>
 
-            <div
-              style={{
-                padding: '12px 14px',
-                borderRadius: 12,
-                background: 'var(--welcome-bg)',
-                border: '1px solid var(--welcome-border)',
-                marginBottom: 12,
-              }}
-            >
-              <div
-                style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: 6,
-                }}
-              >
+            <div className="panel lab-confront-panel" style={{ marginBottom: 12 }}>
+              <div className="panel-head" style={{ marginBottom: 6 }}>
                 <span className="tag prio-ok">{rescueCard.pillar}</span>
                 <button
                   type="button"
@@ -828,7 +818,7 @@ export function LabView({
                     setRescueCardIdx((i) => (i + 1) % CONFRONTATION_CARDS.length)
                   }
                 >
-                  Próximo confronto
+                  Próximo
                 </button>
               </div>
               <strong style={{ display: 'block', marginBottom: 4 }}>
@@ -838,28 +828,21 @@ export function LabView({
                 {rescueCard.message}
               </p>
               {rescueCard.verse && (
-                <p
-                  style={{
-                    margin: '6px 0 0',
-                    fontSize: 11.5,
-                    color: 'var(--accent)',
-                    fontWeight: 600,
-                  }}
-                >
-                  📖 {rescueCard.verse}
+                <p className="lab-confront-verse" style={{ marginTop: 6 }}>
+                  {rescueCard.verse}
                 </p>
               )}
             </div>
 
             {rescueTrack?.why_statement && (
               <div className="lab-detail" style={{ marginBottom: 10 }}>
-                <strong>Lembre da sua própria palavra:</strong>
+                <strong>Sua própria palavra</strong>
                 <p>{rescueTrack.why_statement}</p>
               </div>
             )}
 
             <div className="lab-detail" style={{ marginBottom: 12 }}>
-              <strong>Checklist de corte imediato:</strong>
+              <strong>Corte imediato</strong>
               {[
                 'Fechei a aba / bloqueei o conteúdo agora',
                 'Saí do quarto / fui para um lugar visível',
@@ -931,8 +914,8 @@ export function LabView({
               </button>
             </div>
             <p style={{ fontSize: 13, lineHeight: 1.55, marginTop: 0 }}>
-              Confessar e recomeçar exige coragem. Não deixe a vergonha te empurrar para
-              mais quedas — identifique o que abriu a brecha para fechar essa porta hoje.
+              Confessar e recomeçar exige coragem. Identifique o que abriu a brecha para
+              fechar essa porta hoje.
             </p>
             <form onSubmit={handleConfirmRelapse}>
               <div className="field">
@@ -966,4 +949,3 @@ export function LabView({
     </section>
   );
 }
-
