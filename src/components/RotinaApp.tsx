@@ -19,6 +19,7 @@ import type {
   FinanceExpense,
   FinanceIncome,
   FinanceMonth,
+  Goal,
   Profile,
   Task,
 } from '@/lib/types';
@@ -30,10 +31,18 @@ import {
   type NewTaskPayload,
 } from './EntryModal';
 import { FinanceView } from './FinanceView';
+import { GoalsView } from './GoalsView';
 import { ProfileView } from './ProfileView';
 import { TipsView } from './TipsView';
 
-type ViewId = 'dashboard' | 'tasks' | 'calendar' | 'finance' | 'tips' | 'profile';
+type ViewId =
+  | 'dashboard'
+  | 'tasks'
+  | 'calendar'
+  | 'goals'
+  | 'finance'
+  | 'tips'
+  | 'profile';
 
 interface RotinaAppProps {
   initialProfile: Profile;
@@ -42,6 +51,7 @@ interface RotinaAppProps {
   initialFinanceMonths: FinanceMonth[];
   initialFinanceExpenses: FinanceExpense[];
   initialFinanceIncomes: FinanceIncome[];
+  initialGoals: Goal[];
 }
 
 const FUNNY_PHRASES = [
@@ -74,12 +84,14 @@ export function RotinaApp({
   initialFinanceMonths,
   initialFinanceExpenses,
   initialFinanceIncomes,
+  initialGoals,
 }: RotinaAppProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
   const [profile, setProfile] = useState<Profile>(initialProfile);
   const [tasks, setTasks] = useState<Task[]>(initialTasks);
   const [events, setEvents] = useState<CalendarEvent[]>(initialEvents);
+  const [goals, setGoals] = useState<Goal[]>(initialGoals);
   const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(
     initialFinanceExpenses
   );
@@ -525,6 +537,7 @@ export function RotinaApp({
     dashboard: 'Visão geral',
     tasks: 'Minhas tarefas',
     calendar: 'Agenda',
+    goals: 'Metas',
     finance: 'Financeiro',
     tips: 'Severino',
     profile: 'Meu perfil',
@@ -750,6 +763,14 @@ export function RotinaApp({
             >
               <span className="ico">▦</span>
               <span className="nav-text">Agenda</span>
+            </button>
+            <button
+              className={view === 'goals' ? 'active' : ''}
+              onClick={() => setView('goals')}
+              title="Metas"
+            >
+              <span className="ico">◎</span>
+              <span className="nav-text">Metas</span>
             </button>
             <button
               className={view === 'finance' ? 'active' : ''}
@@ -1361,6 +1382,16 @@ export function RotinaApp({
           </section>
         )}
 
+        {view === 'goals' && (
+          <GoalsView
+            userId={profile.id}
+            todayStr={todayStr}
+            goals={goals}
+            onGoalsChange={setGoals}
+            onToast={showToast}
+          />
+        )}
+
         {view === 'finance' && (
           <FinanceView
             userId={profile.id}
@@ -1432,6 +1463,13 @@ export function RotinaApp({
         >
           <span>▦</span>
           <small>Agenda</small>
+        </button>
+        <button
+          className={view === 'goals' ? 'active' : ''}
+          onClick={() => setView('goals')}
+        >
+          <span>◎</span>
+          <small>Metas</small>
         </button>
         <button
           className={view === 'finance' ? 'active' : ''}

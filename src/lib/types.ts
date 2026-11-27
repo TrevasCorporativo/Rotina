@@ -57,6 +57,19 @@ export interface FinanceExpense {
   updated_at: string;
 }
 
+export interface Goal {
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  target_date: string | null;
+  progress: number;
+  done: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FinanceIncome {
   id: string;
   user_id: string;
@@ -68,6 +81,19 @@ export interface FinanceIncome {
   recurrence_group_id: string | null;
   installment_index: number | null;
   installment_total: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  target_date: string | null;
+  progress: number;
+  done: boolean;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -116,6 +142,19 @@ export interface FinanceExpense {
   updated_at: string;
 }
 
+export interface Goal {
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  target_date: string | null;
+  progress: number;
+  done: boolean;
+  notes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface FinanceIncome {
   id: string;
   user_id: string;
@@ -127,6 +166,19 @@ export interface FinanceIncome {
   recurrence_group_id: string | null;
   installment_index: number | null;
   installment_total: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Goal {
+  id: string;
+  user_id: string;
+  title: string;
+  category: string;
+  target_date: string | null;
+  progress: number;
+  done: boolean;
+  notes: string | null;
   created_at: string;
   updated_at: string;
 }

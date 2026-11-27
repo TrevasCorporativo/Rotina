@@ -2150,7 +2150,10 @@ button {
     bottom: 0;
     z-index: 35;
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(7, minmax(52px, 1fr));
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
     background: var(--surface);
     border-top: 1px solid var(--line);
     padding: 6px 4px env(safe-area-inset-bottom, 6px);

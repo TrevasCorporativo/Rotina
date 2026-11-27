@@ -7,6 +7,7 @@ import type {
   FinanceExpense,
   FinanceIncome,
   FinanceMonth,
+  Goal,
   Profile,
   Task,
 } from '@/lib/types';
@@ -28,6 +29,7 @@ async function HomeContent() {
     { data: financeMonths },
     { data: financeExpenses },
     { data: financeIncomes },
+    { data: goals },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase
@@ -48,6 +50,10 @@ async function HomeContent() {
       .from('finance_incomes')
       .select('*')
       .order('month_key', { ascending: true }),
+    supabase
+      .from('goals')
+      .select('*')
+      .order('target_date', { ascending: true }),
   ]);
 
   if (!profile) {
@@ -62,6 +68,7 @@ async function HomeContent() {
       initialFinanceMonths={(financeMonths ?? []) as FinanceMonth[]}
       initialFinanceExpenses={(financeExpenses ?? []) as FinanceExpense[]}
       initialFinanceIncomes={(financeIncomes ?? []) as FinanceIncome[]}
+      initialGoals={(goals ?? []) as Goal[]}
     />
   );
 }
