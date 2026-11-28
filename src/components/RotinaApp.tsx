@@ -45,9 +45,11 @@ import { NotesView } from './NotesView';
 import { ProfileView } from './ProfileView';
 import { SchoolView } from './SchoolView';
 import { TipsView } from './TipsView';
+import { WeekView } from './WeekView';
 
 export type ViewId =
   | 'dashboard'
+  | 'week'
   | 'tasks'
   | 'calendar'
   | 'goals'
@@ -61,6 +63,7 @@ export type ViewId =
 
 const VIEW_PATHS: Record<ViewId, string> = {
   dashboard: '/',
+  week: '/semana',
   tasks: '/tarefas',
   calendar: '/agenda',
   goals: '/metas',
@@ -274,6 +277,7 @@ export function RotinaApp({
     const params = new URLSearchParams(window.location.search);
     const v = params.get('view');
     if (
+      v === 'week' ||
       v === 'tasks' ||
       v === 'calendar' ||
       v === 'goals' ||
@@ -853,6 +857,7 @@ export function RotinaApp({
 
   const crumbLabel: Record<ViewId, string> = {
     dashboard: 'Visão geral',
+    week: 'Semana',
     tasks: 'Minhas tarefas',
     calendar: 'Agenda',
     goals: 'Metas',
@@ -1101,6 +1106,14 @@ export function RotinaApp({
               <span className="nav-text">Visão geral</span>
             </button>
             <button
+              className={view === 'week' ? 'active' : ''}
+              onClick={() => setView('week')}
+              title="Semana"
+            >
+              <span className="ico">▥</span>
+              <span className="nav-text">Semana</span>
+            </button>
+            <button
               className={view === 'tasks' ? 'active' : ''}
               onClick={() => setView('tasks')}
               title="Minhas tarefas"
@@ -1153,7 +1166,7 @@ export function RotinaApp({
               onClick={() => setView('devotional')}
               title="Devocional"
             >
-              <span className="ico">✝</span>
+              <span className="ico">◇</span>
               <span className="nav-text">Devocional</span>
             </button>
             <button
@@ -1662,6 +1675,27 @@ export function RotinaApp({
           </section>
         )}
 
+        {view === 'week' && (
+          <WeekView
+            userId={profile.id}
+            todayStr={todayStr}
+            tasks={tasks}
+            events={events}
+            onTasksChange={setTasks}
+            onEventsChange={setEvents}
+            onToggleTask={toggleTask}
+            onEditTask={(t) => {
+              setEditingTask(t);
+              setModalMode('task');
+            }}
+            onEditEvent={(ev) => {
+              setEditingEvent(ev);
+              setModalMode('event');
+            }}
+            onToast={showToast}
+          />
+        )}
+
         {view === 'tasks' && (
           <section>
             <div className="page-head">
@@ -2086,6 +2120,13 @@ export function RotinaApp({
                 <span>Visão geral</span>
               </button>
               <button
+                className={view === 'week' ? 'active' : ''}
+                onClick={() => setView('week')}
+              >
+                <span className="ico">▥</span>
+                <span>Semana</span>
+              </button>
+              <button
                 className={view === 'tasks' ? 'active' : ''}
                 onClick={() => setView('tasks')}
               >
@@ -2131,7 +2172,7 @@ export function RotinaApp({
                 className={view === 'devotional' ? 'active' : ''}
                 onClick={() => setView('devotional')}
               >
-                <span className="ico">✝</span>
+                <span className="ico">◇</span>
                 <span>Devocional</span>
               </button>
               <button

@@ -3127,3 +3127,101 @@ button {
     grid-template-columns: 1fr 110px;
   }
 }
+
+.week-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.week-quick-form {
+  display: grid;
+  grid-template-columns: 110px 96px 96px 1fr auto;
+  gap: 8px;
+}
+
+.week-quick-form input,
+.week-quick-form select {
+  border: 1px solid var(--line);
+  background: var(--input-bg);
+  border-radius: 9px;
+  padding: 9px 10px;
+  color: var(--text);
+  font-size: 13px;
+  min-width: 0;
+}
+
+.week-quick-form select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.week-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.week-strip-btn {
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  border-radius: 12px;
+  padding: 8px 4px;
+  display: grid;
+  gap: 2px;
+  place-items: center;
+  cursor: pointer;
+}
+
+.week-strip-btn span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.week-strip-btn strong {
+  font-size: 15px;
+}
+
+.week-strip-btn small {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.week-strip-btn.today {
+  border-color: var(--accent);
+}
+
+.week-strip-btn.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.week-strip-btn.active strong,
+.week-strip-btn.active span {
+  color: var(--accent);
+}
+
+@media (max-width: 760px) {
+  .week-quick-form {
+    grid-template-columns: 1fr 1fr;
+  }
+  .week-quick-form input[type='text'] {
+    grid-column: 1 / -1;
+  }
+  .week-quick-form button {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+  .week-strip {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 4px;
+  }
+  .week-strip-btn {
+    padding: 6px 2px;
+  }
+  .week-strip-btn small {
+    display: none;
+  }
+}
