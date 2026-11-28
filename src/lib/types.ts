@@ -228,5 +228,6 @@ export interface CourseProgress {
   lesson_id: string;
   completed: boolean;
   notes: string;
+  checklist_done?: string[];
   updated_at: string;
 }

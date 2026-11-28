@@ -2962,3 +2962,40 @@ button {
     grid-template-columns: 1fr;
   }
 }
+
+.school-courses-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.school-course-chip {
+  text-align: left;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+  display: grid;
+  gap: 2px;
+}
+
+.school-course-chip strong {
+  font-size: 13px;
+}
+
+.school-course-chip small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.school-course-chip.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.school-course-chip.active strong {
+  color: var(--accent);
+}
