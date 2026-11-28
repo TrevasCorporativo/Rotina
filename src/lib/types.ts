@@ -21,6 +21,7 @@ export interface Task {
   category: string;
   due_date: string | null;
   due_time: string | null;
+  end_time?: string | null;
   priority: Priority;
   done: boolean;
   notify_enabled: boolean;
@@ -104,6 +105,7 @@ export interface CalendarEvent {
   title: string;
   event_date: string;
   event_time: string;
+  end_time?: string | null;
   location: string | null;
   notes: string | null;
   category: string;

@@ -76,7 +76,8 @@ export function WeekView({
   // Clean Add Modal
   const [modalOpen, setModalOpen] = useState(false);
   const [formTitle, setFormTitle] = useState('');
-  const [formTime, setFormTime] = useState('09:00');
+  const [formTime, setFormTime] = useState('08:00');
+  const [formEndTime, setFormEndTime] = useState('');
   const [formKind, setFormKind] = useState<'task' | 'event'>('task');
   const [formDate, setFormDate] = useState<string>(activeDay.dateStr);
   const [saving, setSaving] = useState(false);
@@ -90,6 +91,7 @@ export function WeekView({
             id: string;
             title: string;
             time: string;
+            endTime: string | null;
             done: boolean;
             event: CalendarEvent;
           }
@@ -98,6 +100,7 @@ export function WeekView({
             id: string;
             title: string;
             time: string;
+            endTime: string | null;
             done: boolean;
             task: Task;
           }
@@ -111,6 +114,7 @@ export function WeekView({
             id: string;
             title: string;
             time: string;
+            endTime: string | null;
             done: boolean;
             event: CalendarEvent;
           }
@@ -119,6 +123,7 @@ export function WeekView({
             id: string;
             title: string;
             time: string;
+            endTime: string | null;
             done: boolean;
             task: Task;
           }
@@ -131,6 +136,7 @@ export function WeekView({
             id: `ev-${ev.id}-${day.dateStr}`,
             title: ev.title,
             time: ev.event_time.slice(0, 5),
+            endTime: ev.end_time ? ev.end_time.slice(0, 5) : null,
             done: false,
             event: ev,
           });
@@ -144,6 +150,7 @@ export function WeekView({
             id: `task-${t.id}`,
             title: t.title,
             time: t.due_time ? t.due_time.slice(0, 5) : '99:99',
+            endTime: t.end_time ? t.end_time.slice(0, 5) : null,
             done: t.done,
             task: t,
           });
@@ -161,7 +168,8 @@ export function WeekView({
 
   function openAddModal(dateStr?: string) {
     setFormTitle('');
-    setFormTime('09:00');
+    setFormTime('08:00');
+    setFormEndTime('');
     setFormKind('task');
     setFormDate(dateStr ?? activeDay.dateStr);
     setModalOpen(true);
@@ -171,6 +179,7 @@ export function WeekView({
     e.preventDefault();
     const title = formTitle.trim();
     if (!title) return;
+    const cleanEnd = formEndTime.trim() || null;
     setSaving(true);
     try {
       if (formKind === 'event') {
@@ -180,7 +189,8 @@ export function WeekView({
             user_id: userId,
             title,
             event_date: formDate,
-            event_time: formTime || '09:00',
+            event_time: formTime || '08:00',
+            end_time: cleanEnd,
             category: 'Pessoal',
             notify_enabled: true,
             notify_minutes_before: 15,
@@ -204,6 +214,7 @@ export function WeekView({
             category: 'Pessoal',
             due_date: formDate,
             due_time: formTime || null,
+            end_time: cleanEnd,
             priority: 'medium',
             notify_enabled: true,
             reminder_preset: 'same_day_08',
@@ -346,7 +357,11 @@ export function WeekView({
                   <div className="task-title">{item.title}</div>
                   <div className="task-meta">
                     <span className="tag prio-ok">
-                      {item.time === '99:99' ? 'Sem hora' : item.time}
+                      {item.time === '99:99'
+                        ? 'Sem hora'
+                        : item.endTime
+                        ? `${item.time} – ${item.endTime}`
+                        : item.time}
                     </span>
                     <span className="tag prio-type">
                       {item.kind === 'event' ? 'Agenda' : 'Tarefa'}
@@ -400,6 +415,28 @@ export function WeekView({
 
               <div className="form-row">
                 <div className="field">
+                  <label htmlFor="weekTime">Início</label>
+                  <input
+                    id="weekTime"
+                    type="time"
+                    value={formTime}
+                    onChange={(e) => setFormTime(e.target.value)}
+                  />
+                </div>
+
+                <div className="field">
+                  <label htmlFor="weekEndTime">Fim (opcional)</label>
+                  <input
+                    id="weekEndTime"
+                    type="time"
+                    value={formEndTime}
+                    onChange={(e) => setFormEndTime(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="form-row">
+                <div className="field">
                   <label htmlFor="weekDay">Dia</label>
                   <select
                     id="weekDay"
@@ -415,26 +452,16 @@ export function WeekView({
                 </div>
 
                 <div className="field">
-                  <label htmlFor="weekTime">Horário</label>
-                  <input
-                    id="weekTime"
-                    type="time"
-                    value={formTime}
-                    onChange={(e) => setFormTime(e.target.value)}
-                  />
+                  <label htmlFor="weekKind">Salvar em</label>
+                  <select
+                    id="weekKind"
+                    value={formKind}
+                    onChange={(e) => setFormKind(e.target.value as 'task' | 'event')}
+                  >
+                    <option value="task">Tarefa</option>
+                    <option value="event">Agenda</option>
+                  </select>
                 </div>
-              </div>
-
-              <div className="field">
-                <label htmlFor="weekKind">Salvar em</label>
-                <select
-                  id="weekKind"
-                  value={formKind}
-                  onChange={(e) => setFormKind(e.target.value as 'task' | 'event')}
-                >
-                  <option value="task">Tarefa</option>
-                  <option value="event">Agenda (compromisso)</option>
-                </select>
               </div>
 
               <div className="modal-actions">
