@@ -48,17 +48,17 @@ export function LoginScreen() {
           <BrandLogo variant="light" size={38} /> Modo Sobrevivência
         </div>
         <div className="access-message">
-          <div className="access-kicker">UM ESPAÇO. FOCO TOTAL. UMA ROTINA.</div>
+          <div className="access-kicker">ESPAÇO PESSOAL DE LEONARDO</div>
           <h1>
-            A vida adulta
+            Disciplina no secreto.
             <br />
-            não veio com
+            Clareza na mente.
             <br />
-            manual.
+            Fé na caminhada.
           </h1>
           <p>
-            Mas pelo menos agora tem uma agenda. Organize as tarefas, marque os
-            compromissos e finja que está tudo sob controle — um dia de cada vez.
+            Seu centro diário para organizar a rotina, fortalecer o caráter, estudar
+            a Palavra e construir um dia de cada vez com propósito.
           </p>
         </div>
         <div className="access-preview">
@@ -69,7 +69,7 @@ export function LoginScreen() {
                 <path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17M8 4v2M12 3v3M16 4v2" />
               </svg>
             </strong>
-            <span>Café para começar</span>
+            <span>Constância diária</span>
           </div>
           <div className="preview-tile">
             <strong>
@@ -77,7 +77,7 @@ export function LoginScreen() {
                 <path d="m5 12 4 4L19 6" />
               </svg>
             </strong>
-            <span>Uma coisa de cada vez</span>
+            <span>Mente limpa e firme</span>
           </div>
           <div className="preview-tile">
             <strong>
@@ -86,11 +86,11 @@ export function LoginScreen() {
                 <path d="M12 4v2M5.8 7l1.4 1M18.2 7l-1.4 1" />
               </svg>
             </strong>
-            <span>Memória terceirizada</span>
+            <span>Propósito e direção</span>
           </div>
         </div>
         <div className="access-footer">
-          MODO SOBREVIVÊNCIA · CENTRAL DE SOBREVIVÊNCIA
+          LEONARDO · ROTINA, FÉ E DOMÍNIO PRÓPRIO
         </div>
       </section>
 
@@ -112,10 +112,11 @@ export function LoginScreen() {
           )}
         </button>
         <form className="access-form" onSubmit={handleSubmit}>
-          <div className="eyebrow">CENTRAL DE COMANDO</div>
-          <h2>Vamos sobreviver?</h2>
+          <div className="eyebrow">BEM-VINDO DE VOLTA</div>
+          <h2>Pronto para vencer hoje?</h2>
           <p className="intro">
-            Digite seu nome e sua senha. A organização começa por algum lugar.
+            Entre no seu espaço pessoal. Cada escolha de hoje constrói o homem que você
+            quer ser.
           </p>
 
           <div className="access-field">
@@ -163,8 +164,8 @@ export function LoginScreen() {
           </div>
 
           <div className="access-hint">
-            Cada um tem seu próprio espaço, suas tarefas e seus compromissos. Sem
-            bisbilhotar a lista do outro.
+            &ldquo;Tudo o que fizerem, façam de todo o coração, como para o Senhor.&rdquo;
+            — Colossenses 3:23
           </div>
         </form>
       </section>
