@@ -29,6 +29,7 @@ import type {
   RecoveryLog,
   RecoveryTrack,
   Task,
+  WeeklyBlock,
 } from '@/lib/types';
 import { BrandLogo } from './BrandLogo';
 import { ChangePasswordModal } from './ChangePasswordModal';
@@ -92,6 +93,7 @@ interface RotinaAppProps {
   initialDevotionalCheckins: DevotionalCheckin[];
   initialBibleHighlights: BibleHighlight[];
   initialBibleNotes: BibleNote[];
+  initialWeeklyBlocks: WeeklyBlock[];
 }
 
 function localDate(d: Date): string {
@@ -139,6 +141,7 @@ export function RotinaApp({
   initialDevotionalCheckins,
   initialBibleHighlights,
   initialBibleNotes,
+  initialWeeklyBlocks,
 }: RotinaAppProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -160,6 +163,8 @@ export function RotinaApp({
     initialBibleHighlights
   );
   const [bibleNotes, setBibleNotes] = useState<BibleNote[]>(initialBibleNotes);
+  const [weeklyBlocks, setWeeklyBlocks] =
+    useState<WeeklyBlock[]>(initialWeeklyBlocks);
   const [devotionalAlertOpen, setDevotionalAlertOpen] = useState(false);
   const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(
     initialFinanceExpenses
@@ -1681,8 +1686,10 @@ export function RotinaApp({
             todayStr={todayStr}
             tasks={tasks}
             events={events}
+            weeklyBlocks={weeklyBlocks}
             onTasksChange={setTasks}
             onEventsChange={setEvents}
+            onWeeklyBlocksChange={setWeeklyBlocks}
             onToggleTask={toggleTask}
             onEditTask={(t) => {
               setEditingTask(t);

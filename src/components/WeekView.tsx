@@ -1,18 +1,20 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { doesEventOccurOnDate } from '@/lib/recurrence';
-import type { CalendarEvent, Task } from '@/lib/types';
+import type { CalendarEvent, Task, WeeklyBlock } from '@/lib/types';
 
 interface WeekViewProps {
   userId: string;
   todayStr: string;
   tasks: Task[];
   events: CalendarEvent[];
+  weeklyBlocks: WeeklyBlock[];
   onTasksChange: React.Dispatch<React.SetStateAction<Task[]>>;
   onEventsChange: React.Dispatch<React.SetStateAction<CalendarEvent[]>>;
+  onWeeklyBlocksChange: React.Dispatch<React.SetStateAction<WeeklyBlock[]>>;
   onToggleTask: (task: Task) => void;
   onEditTask: (task: Task) => void;
   onEditEvent: (ev: CalendarEvent) => void;
@@ -40,8 +42,10 @@ export function WeekView({
   todayStr,
   tasks,
   events,
+  weeklyBlocks,
   onTasksChange,
   onEventsChange,
+  onWeeklyBlocksChange,
   onToggleTask,
   onEditTask,
   onEditEvent,
@@ -78,56 +82,58 @@ export function WeekView({
   const [formTitle, setFormTitle] = useState('');
   const [formTime, setFormTime] = useState('08:00');
   const [formEndTime, setFormEndTime] = useState('');
-  const [formKind, setFormKind] = useState<'task' | 'event'>('task');
-  const [formDate, setFormDate] = useState<string>(activeDay.dateStr);
+  const [formKind, setFormKind] = useState<'routine' | 'task' | 'event'>('routine');
+  const [formDays, setFormDays] = useState<number[]>([activeDay.idx]);
   const [saving, setSaving] = useState(false);
 
   const itemsByDate = useMemo(() => {
-    const map = new Map<
-      string,
-      Array<
-        | {
-            kind: 'event';
-            id: string;
-            title: string;
-            time: string;
-            endTime: string | null;
-            done: boolean;
-            event: CalendarEvent;
-          }
-        | {
-            kind: 'task';
-            id: string;
-            title: string;
-            time: string;
-            endTime: string | null;
-            done: boolean;
-            task: Task;
-          }
-      >
-    >();
+    type DayItem =
+      | {
+          kind: 'routine';
+          id: string;
+          title: string;
+          time: string;
+          endTime: string | null;
+          done: boolean;
+          block: WeeklyBlock;
+        }
+      | {
+          kind: 'event';
+          id: string;
+          title: string;
+          time: string;
+          endTime: string | null;
+          done: boolean;
+          event: CalendarEvent;
+        }
+      | {
+          kind: 'task';
+          id: string;
+          title: string;
+          time: string;
+          endTime: string | null;
+          done: boolean;
+          task: Task;
+        };
+
+    const map = new Map<string, DayItem[]>();
 
     for (const day of weekDays) {
-      const list: Array<
-        | {
-            kind: 'event';
-            id: string;
-            title: string;
-            time: string;
-            endTime: string | null;
-            done: boolean;
-            event: CalendarEvent;
-          }
-        | {
-            kind: 'task';
-            id: string;
-            title: string;
-            time: string;
-            endTime: string | null;
-            done: boolean;
-            task: Task;
-          }
-      > = [];
+      const list: DayItem[] = [];
+
+      for (const b of weeklyBlocks) {
+        if (b.weekdays.includes(day.idx)) {
+          list.push({
+            kind: 'routine',
+            id: `blk-${b.id}-${day.idx}`,
+            title: b.title,
+            time: b.start_time.slice(0, 5),
+            endTime: b.end_time ? b.end_time.slice(0, 5) : null,
+            done: false,
+            block: b,
+          });
+        }
+      }
 
       for (const ev of events) {
         if (doesEventOccurOnDate(ev, day.dateStr)) {
@@ -164,33 +170,64 @@ export function WeekView({
     }
 
     return map;
-  }, [weekDays, events, tasks]);
+  }, [weekDays, weeklyBlocks, events, tasks]);
 
-  function openAddModal(dateStr?: string) {
+  function openAddModal() {
     setFormTitle('');
     setFormTime('08:00');
     setFormEndTime('');
-    setFormKind('task');
-    setFormDate(dateStr ?? activeDay.dateStr);
+    setFormKind('routine');
+    setFormDays([activeDay.idx]);
     setModalOpen(true);
+  }
+
+  function toggleWeekday(idx: number) {
+    setFormDays((prev) =>
+      prev.includes(idx)
+        ? prev.length > 1
+          ? prev.filter((d) => d !== idx)
+          : prev
+        : [...prev, idx].sort((a, b) => a - b)
+    );
   }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
     const title = formTitle.trim();
-    if (!title) return;
+    if (!title || formDays.length === 0) return;
     const cleanEnd = formEndTime.trim() || null;
     setSaving(true);
     try {
-      if (formKind === 'event') {
+      if (formKind === 'routine') {
+        const { data, error } = await supabase
+          .from('weekly_blocks')
+          .insert({
+            user_id: userId,
+            title,
+            start_time: formTime || '08:00',
+            end_time: cleanEnd,
+            weekdays: formDays,
+          })
+          .select('*')
+          .single();
+
+        if (error || !data) {
+          onToast('Erro ao salvar rotina semanal.');
+          return;
+        }
+        onWeeklyBlocksChange((prev) => [...prev, data as WeeklyBlock]);
+        onToast('Rotina fixa salva na Semana (não vai para a Agenda)!');
+      } else if (formKind === 'event') {
+        const firstDay = weekDays.find((d) => d.idx === formDays[0]) ?? activeDay;
         const { data, error } = await supabase
           .from('events')
           .insert({
             user_id: userId,
             title,
-            event_date: formDate,
+            event_date: firstDay.dateStr,
             event_time: formTime || '08:00',
             end_time: cleanEnd,
+            recurrence_days: formDays.length > 1 ? formDays : null,
             category: 'Pessoal',
             notify_enabled: true,
             notify_minutes_before: 15,
@@ -206,35 +243,52 @@ export function WeekView({
         onEventsChange((prev) => [...prev, data as CalendarEvent]);
         onToast('Adicionado na semana e na Agenda!');
       } else {
-        const { data, error } = await supabase
-          .from('tasks')
-          .insert({
+        const rows = formDays.map((dayIdx) => {
+          const d = weekDays.find((w) => w.idx === dayIdx) ?? activeDay;
+          return {
             user_id: userId,
             title,
             category: 'Pessoal',
-            due_date: formDate,
+            due_date: d.dateStr,
             due_time: formTime || null,
             end_time: cleanEnd,
-            priority: 'medium',
+            priority: 'medium' as const,
             notify_enabled: true,
             reminder_preset: 'same_day_08',
             reminder_presets: ['same_day_08', 'relative:0'],
-          })
-          .select('*')
-          .single();
+          };
+        });
+
+        const { data, error } = await supabase
+          .from('tasks')
+          .insert(rows)
+          .select('*');
 
         if (error || !data) {
-          onToast('Erro ao salvar tarefa.');
+          onToast('Erro ao salvar tarefa(s).');
           return;
         }
-        onTasksChange((prev) => [data as Task, ...prev]);
-        onToast('Tarefa adicionada na semana!');
+        onTasksChange((prev) => [...(data as Task[]), ...prev]);
+        onToast(
+          data.length > 1
+            ? `${data.length} tarefas replicadas na semana!`
+            : 'Tarefa adicionada na semana!'
+        );
       }
-      setSelectedDate(formDate);
       setModalOpen(false);
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleDeleteBlock(id: string) {
+    const { error } = await supabase.from('weekly_blocks').delete().eq('id', id);
+    if (error) {
+      onToast('Erro ao remover bloco semanal.');
+      return;
+    }
+    onWeeklyBlocksChange((prev) => prev.filter((b) => b.id !== id));
+    onToast('Bloco removido da semana.');
   }
 
   const weekRangeLabel = `${weekDays[0].monthLabel} – ${weekDays[6].monthLabel}`;
@@ -277,11 +331,7 @@ export function WeekView({
           >
             <ChevronRight size={14} />
           </button>
-          <button
-            type="button"
-            className="btn small"
-            onClick={() => openAddModal()}
-          >
+          <button type="button" className="btn small" onClick={openAddModal}>
             ＋ Adicionar
           </button>
         </div>
@@ -313,16 +363,14 @@ export function WeekView({
       {/* Focused Day Schedule */}
       <div className="panel">
         <div className="panel-head" style={{ marginBottom: 12 }}>
-          <div>
-            <h2 style={{ fontSize: 17 }}>
-              {activeDay.label}, {activeDay.monthLabel}
-              {activeDay.dateStr === todayStr && (
-                <span className="tag prio-ok" style={{ marginLeft: 8 }}>
-                  Hoje
-                </span>
-              )}
-            </h2>
-          </div>
+          <h2 style={{ fontSize: 17 }}>
+            {activeDay.label}, {activeDay.monthLabel}
+            {activeDay.dateStr === todayStr && (
+              <span className="tag prio-ok" style={{ marginLeft: 8 }}>
+                Hoje
+              </span>
+            )}
+          </h2>
           <span className="muted" style={{ fontSize: 12 }}>
             {dayItems.length} {dayItems.length === 1 ? 'item' : 'itens'}
           </span>
@@ -334,10 +382,10 @@ export function WeekView({
               <div
                 key={item.id}
                 className={`task ${item.done ? 'done' : ''}`}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: item.kind === 'routine' ? 'default' : 'pointer' }}
                 onClick={() => {
                   if (item.kind === 'task') onEditTask(item.task);
-                  else onEditEvent(item.event);
+                  else if (item.kind === 'event') onEditEvent(item.event);
                 }}
               >
                 {item.kind === 'task' ? (
@@ -349,8 +397,13 @@ export function WeekView({
                     onChange={() => onToggleTask(item.task)}
                   />
                 ) : (
-                  <span className="prio-kind-dot kind-event" aria-hidden="true">
-                    ◷
+                  <span
+                    className={`prio-kind-dot ${
+                      item.kind === 'event' ? 'kind-event' : ''
+                    }`}
+                    aria-hidden="true"
+                  >
+                    {item.kind === 'event' ? '◷' : '▥'}
                   </span>
                 )}
                 <div>
@@ -364,13 +417,31 @@ export function WeekView({
                         : item.time}
                     </span>
                     <span className="tag prio-type">
-                      {item.kind === 'event' ? 'Agenda' : 'Tarefa'}
+                      {item.kind === 'routine'
+                        ? 'Rotina'
+                        : item.kind === 'event'
+                        ? 'Agenda'
+                        : 'Tarefa'}
                     </span>
                   </div>
                 </div>
-                <span className="muted" style={{ fontSize: 13 }}>
-                  ›
-                </span>
+                {item.kind === 'routine' ? (
+                  <button
+                    type="button"
+                    className="icon-mini-btn"
+                    title="Remover rotina"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDeleteBlock(item.block.id);
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                ) : (
+                  <span className="muted" style={{ fontSize: 13 }}>
+                    ›
+                  </span>
+                )}
               </div>
             ))
           ) : (
@@ -407,7 +478,7 @@ export function WeekView({
                   id="weekTitle"
                   required
                   autoFocus
-                  placeholder="Ex: Treinar, Reunião, Estudar..."
+                  placeholder="Ex: Trabalho, Treinar, Reunião..."
                   value={formTitle}
                   onChange={(e) => setFormTitle(e.target.value)}
                 />
@@ -435,33 +506,55 @@ export function WeekView({
                 </div>
               </div>
 
-              <div className="form-row">
-                <div className="field">
-                  <label htmlFor="weekDay">Dia</label>
-                  <select
-                    id="weekDay"
-                    value={formDate}
-                    onChange={(e) => setFormDate(e.target.value)}
+              <div className="field">
+                <div
+                  style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    marginBottom: 4,
+                  }}
+                >
+                  <label style={{ margin: 0 }}>Repetir nos dias</label>
+                  <button
+                    type="button"
+                    className="btn secondary small"
+                    style={{ padding: '3px 8px', fontSize: 11 }}
+                    onClick={() => setFormDays([1, 2, 3, 4, 5])}
                   >
-                    {weekDays.map((d) => (
-                      <option key={d.dateStr} value={d.dateStr}>
-                        {d.label}, {d.monthLabel}
-                      </option>
-                    ))}
-                  </select>
+                    Seg a Sex
+                  </button>
                 </div>
+                <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
+                  {WEEKDAY_SHORT.map((lbl, idx) => (
+                    <button
+                      key={lbl}
+                      type="button"
+                      className={`chip ${formDays.includes(idx) ? 'active' : ''}`}
+                      style={{ padding: '5px 10px', fontSize: 12 }}
+                      onClick={() => toggleWeekday(idx)}
+                    >
+                      {lbl}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                <div className="field">
-                  <label htmlFor="weekKind">Salvar em</label>
-                  <select
-                    id="weekKind"
-                    value={formKind}
-                    onChange={(e) => setFormKind(e.target.value as 'task' | 'event')}
-                  >
-                    <option value="task">Tarefa</option>
-                    <option value="event">Agenda</option>
-                  </select>
-                </div>
+              <div className="field">
+                <label htmlFor="weekKind">Onde salvar</label>
+                <select
+                  id="weekKind"
+                  value={formKind}
+                  onChange={(e) =>
+                    setFormKind(e.target.value as 'routine' | 'task' | 'event')
+                  }
+                >
+                  <option value="routine">
+                    Rotina fixa (só na Semana, não vai pra Agenda)
+                  </option>
+                  <option value="task">Tarefa</option>
+                  <option value="event">Agenda (compromisso)</option>
+                </select>
               </div>
 
               <div className="modal-actions">

@@ -14,6 +14,7 @@ import type {
   RecoveryLog,
   RecoveryTrack,
   Task,
+  WeeklyBlock,
 } from '@/lib/types';
 
 export interface WorkspaceData {
@@ -31,6 +32,7 @@ export interface WorkspaceData {
   devotionalCheckins: DevotionalCheckin[];
   bibleHighlights: BibleHighlight[];
   bibleNotes: BibleNote[];
+  weeklyBlocks: WeeklyBlock[];
 }
 
 export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
@@ -56,6 +58,7 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     { data: devotionalCheckins },
     { data: bibleHighlights },
     { data: bibleNotes },
+    { data: weeklyBlocks },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase
@@ -104,6 +107,10 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
       .from('bible_notes')
       .select('*')
       .order('created_at', { ascending: false }),
+    supabase
+      .from('weekly_blocks')
+      .select('*')
+      .order('start_time', { ascending: true }),
   ]);
 
   if (!profile || (profile as Profile).login_key?.toLowerCase() !== 'leonardo') {
@@ -125,6 +132,7 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     devotionalCheckins: (devotionalCheckins ?? []) as DevotionalCheckin[],
     bibleHighlights: (bibleHighlights ?? []) as BibleHighlight[],
     bibleNotes: (bibleNotes ?? []) as BibleNote[],
+    weeklyBlocks: (weeklyBlocks ?? []) as WeeklyBlock[],
   };
 }
 

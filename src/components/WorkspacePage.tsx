@@ -27,6 +27,7 @@ async function WorkspaceLoader({ initialView }: { initialView: ViewId }) {
       initialDevotionalCheckins={data.devotionalCheckins}
       initialBibleHighlights={data.bibleHighlights}
       initialBibleNotes={data.bibleNotes}
+      initialWeeklyBlocks={data.weeklyBlocks}
     />
   );
 }

@@ -263,3 +263,13 @@ export interface BibleNote {
   comment: string;
   created_at: string;
 }
+
+export interface WeeklyBlock {
+  id: string;
+  user_id: string;
+  title: string;
+  start_time: string;
+  end_time: string | null;
+  weekdays: number[];
+  created_at: string;
+}
