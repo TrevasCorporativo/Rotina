@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { doesEventOccurOnDate } from '@/lib/recurrence';
 import type { CalendarEvent, Task } from '@/lib/types';
@@ -30,7 +30,7 @@ function toDateStr(d: Date): string {
 
 function getSundayOfWeek(baseDateStr: string, offsetWeeks: number): Date {
   const d = new Date(`${baseDateStr}T12:00:00`);
-  const dow = d.getDay(); // 0 = Sunday
+  const dow = d.getDay();
   d.setDate(d.getDate() - dow + offsetWeeks * 7);
   return d;
 }
@@ -49,7 +49,6 @@ export function WeekView({
 }: WeekViewProps) {
   const supabase = createClient();
   const [weekOffset, setWeekOffset] = useState(0);
-  const [viewMode, setViewMode] = useState<'day' | 'all'>('day');
 
   const weekDays = useMemo(() => {
     const sunday = getSundayOfWeek(todayStr, weekOffset);
@@ -71,15 +70,15 @@ export function WeekView({
   }, [todayStr, weekOffset]);
 
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
-  const activeDate = weekDays.some((d) => d.dateStr === selectedDate)
-    ? selectedDate
-    : weekDays[0].dateStr;
+  const activeDay =
+    weekDays.find((d) => d.dateStr === selectedDate) ?? weekDays[0];
 
-  // Quick-add state
-  const [quickTitle, setQuickTitle] = useState('');
-  const [quickTime, setQuickTime] = useState('09:00');
-  const [quickKind, setQuickKind] = useState<'task' | 'event'>('task');
-  const [quickDate, setQuickDate] = useState<string>(activeDate);
+  // Clean Add Modal
+  const [modalOpen, setModalOpen] = useState(false);
+  const [formTitle, setFormTitle] = useState('');
+  const [formTime, setFormTime] = useState('09:00');
+  const [formKind, setFormKind] = useState<'task' | 'event'>('task');
+  const [formDate, setFormDate] = useState<string>(activeDay.dateStr);
   const [saving, setSaving] = useState(false);
 
   const itemsByDate = useMemo(() => {
@@ -91,7 +90,6 @@ export function WeekView({
             id: string;
             title: string;
             time: string;
-            sub: string;
             done: boolean;
             event: CalendarEvent;
           }
@@ -100,7 +98,6 @@ export function WeekView({
             id: string;
             title: string;
             time: string;
-            sub: string;
             done: boolean;
             task: Task;
           }
@@ -114,7 +111,6 @@ export function WeekView({
             id: string;
             title: string;
             time: string;
-            sub: string;
             done: boolean;
             event: CalendarEvent;
           }
@@ -123,7 +119,6 @@ export function WeekView({
             id: string;
             title: string;
             time: string;
-            sub: string;
             done: boolean;
             task: Task;
           }
@@ -136,7 +131,6 @@ export function WeekView({
             id: `ev-${ev.id}-${day.dateStr}`,
             title: ev.title,
             time: ev.event_time.slice(0, 5),
-            sub: ev.location || ev.category || 'Agenda',
             done: false,
             event: ev,
           });
@@ -150,7 +144,6 @@ export function WeekView({
             id: `task-${t.id}`,
             title: t.title,
             time: t.due_time ? t.due_time.slice(0, 5) : '99:99',
-            sub: t.category || 'Tarefa',
             done: t.done,
             task: t,
           });
@@ -166,23 +159,28 @@ export function WeekView({
     return map;
   }, [weekDays, events, tasks]);
 
-  async function handleQuickAdd(e: React.FormEvent) {
+  function openAddModal(dateStr?: string) {
+    setFormTitle('');
+    setFormTime('09:00');
+    setFormKind('task');
+    setFormDate(dateStr ?? activeDay.dateStr);
+    setModalOpen(true);
+  }
+
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault();
-    const title = quickTitle.trim();
+    const title = formTitle.trim();
     if (!title) return;
-    const targetDate = weekDays.some((d) => d.dateStr === quickDate)
-      ? quickDate
-      : activeDate;
     setSaving(true);
     try {
-      if (quickKind === 'event') {
+      if (formKind === 'event') {
         const { data, error } = await supabase
           .from('events')
           .insert({
             user_id: userId,
             title,
-            event_date: targetDate,
-            event_time: quickTime || '09:00',
+            event_date: formDate,
+            event_time: formTime || '09:00',
             category: 'Pessoal',
             notify_enabled: true,
             notify_minutes_before: 15,
@@ -192,11 +190,11 @@ export function WeekView({
           .single();
 
         if (error || !data) {
-          onToast('Erro ao adicionar na Agenda.');
+          onToast('Erro ao salvar na Agenda.');
           return;
         }
         onEventsChange((prev) => [...prev, data as CalendarEvent]);
-        onToast('Compromisso adicionado na semana e na Agenda!');
+        onToast('Adicionado na semana e na Agenda!');
       } else {
         const { data, error } = await supabase
           .from('tasks')
@@ -204,8 +202,8 @@ export function WeekView({
             user_id: userId,
             title,
             category: 'Pessoal',
-            due_date: targetDate,
-            due_time: quickTime || null,
+            due_date: formDate,
+            due_time: formTime || null,
             priority: 'medium',
             notify_enabled: true,
             reminder_preset: 'same_day_08',
@@ -215,24 +213,21 @@ export function WeekView({
           .single();
 
         if (error || !data) {
-          onToast('Erro ao adicionar tarefa.');
+          onToast('Erro ao salvar tarefa.');
           return;
         }
         onTasksChange((prev) => [data as Task, ...prev]);
         onToast('Tarefa adicionada na semana!');
       }
-      setQuickTitle('');
-      setSelectedDate(targetDate);
+      setSelectedDate(formDate);
+      setModalOpen(false);
     } finally {
       setSaving(false);
     }
   }
 
   const weekRangeLabel = `${weekDays[0].monthLabel} – ${weekDays[6].monthLabel}`;
-  const daysToRender =
-    viewMode === 'all'
-      ? weekDays
-      : weekDays.filter((d) => d.dateStr === activeDate);
+  const dayItems = itemsByDate.get(activeDay.dateStr) ?? [];
 
   return (
     <section className="week-page">
@@ -241,7 +236,7 @@ export function WeekView({
           <div className="eyebrow">PLANEJAMENTO SEMANAL</div>
           <h1>Semana</h1>
           <p className="subtitle">
-            Organize cada dia com horário — sincronizado automaticamente com Agenda e Tarefas.
+            {weekOffset === 0 ? `Atual · ${weekRangeLabel}` : weekRangeLabel}
           </p>
         </div>
         <div className="week-toolbar">
@@ -259,10 +254,9 @@ export function WeekView({
             onClick={() => {
               setWeekOffset(0);
               setSelectedDate(todayStr);
-              setQuickDate(todayStr);
             }}
           >
-            {weekOffset === 0 ? `Atual (${weekRangeLabel})` : weekRangeLabel}
+            Hoje
           </button>
           <button
             type="button"
@@ -272,80 +266,21 @@ export function WeekView({
           >
             <ChevronRight size={14} />
           </button>
-        </div>
-      </div>
-
-      {/* Quick Planner Form (Sunday-style batch launch) */}
-      <div className="panel" style={{ marginBottom: 14 }}>
-        <div className="panel-head" style={{ marginBottom: 10 }}>
-          <h2>Lançar na semana</h2>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              type="button"
-              className={`chip ${viewMode === 'day' ? 'active' : ''}`}
-              style={{ padding: '4px 10px', fontSize: 11 }}
-              onClick={() => setViewMode('day')}
-            >
-              Por dia
-            </button>
-            <button
-              type="button"
-              className={`chip ${viewMode === 'all' ? 'active' : ''}`}
-              style={{ padding: '4px 10px', fontSize: 11 }}
-              onClick={() => setViewMode('all')}
-            >
-              Semana inteira
-            </button>
-          </div>
-        </div>
-        <form onSubmit={handleQuickAdd} className="week-quick-form">
-          <select
-            aria-label="Dia da semana"
-            value={weekDays.some((d) => d.dateStr === quickDate) ? quickDate : activeDate}
-            onChange={(e) => {
-              setQuickDate(e.target.value);
-              setSelectedDate(e.target.value);
-            }}
+          <button
+            type="button"
+            className="btn small"
+            onClick={() => openAddModal()}
           >
-            {weekDays.map((d) => (
-              <option key={d.dateStr} value={d.dateStr}>
-                {d.label} ({d.dayNum})
-              </option>
-            ))}
-          </select>
-          <input
-            type="time"
-            aria-label="Horário"
-            value={quickTime}
-            onChange={(e) => setQuickTime(e.target.value)}
-          />
-          <select
-            aria-label="Tipo"
-            value={quickKind}
-            onChange={(e) => setQuickKind(e.target.value as 'task' | 'event')}
-          >
-            <option value="task">Tarefa</option>
-            <option value="event">Agenda</option>
-          </select>
-          <input
-            type="text"
-            placeholder="O que você vai fazer nesse dia e horário?"
-            value={quickTitle}
-            onChange={(e) => setQuickTitle(e.target.value)}
-            required
-          />
-          <button type="submit" className="btn small" disabled={saving}>
-            <Plus size={14} />
-            {saving ? 'Salvando...' : 'Adicionar'}
+            ＋ Adicionar
           </button>
-        </form>
+        </div>
       </div>
 
       {/* 7-Day Selector Strip */}
       <div className="week-strip" style={{ marginBottom: 14 }}>
         {weekDays.map((d) => {
           const count = itemsByDate.get(d.dateStr)?.length ?? 0;
-          const isSelected = d.dateStr === activeDate && viewMode === 'day';
+          const isSelected = d.dateStr === activeDay.dateStr;
           const isToday = d.dateStr === todayStr;
           return (
             <button
@@ -354,92 +289,170 @@ export function WeekView({
               className={`week-strip-btn ${isSelected ? 'active' : ''} ${
                 isToday ? 'today' : ''
               }`}
-              onClick={() => {
-                setSelectedDate(d.dateStr);
-                setQuickDate(d.dateStr);
-                setViewMode('day');
-              }}
+              onClick={() => setSelectedDate(d.dateStr)}
             >
               <span>{d.label}</span>
               <strong>{d.dayNum}</strong>
-              <small>{count > 0 ? `${count} item` : 'Livre'}</small>
+              <small>{count > 0 ? `${count}` : '·'}</small>
             </button>
           );
         })}
       </div>
 
-      {/* Day Timeline Cards */}
-      <div className={viewMode === 'all' ? 'lab-grid' : ''}>
-        {daysToRender.map((d) => {
-          const dayItems = itemsByDate.get(d.dateStr) ?? [];
-          return (
-            <div key={d.dateStr} className="panel" style={{ marginBottom: viewMode === 'all' ? 0 : 14 }}>
-              <div className="panel-head" style={{ marginBottom: 10 }}>
-                <h2 style={{ fontSize: 16 }}>
-                  {d.label}, {d.monthLabel}
-                  {d.dateStr === todayStr && (
-                    <span className="tag prio-ok" style={{ marginLeft: 8 }}>
-                      Hoje
+      {/* Focused Day Schedule */}
+      <div className="panel">
+        <div className="panel-head" style={{ marginBottom: 12 }}>
+          <div>
+            <h2 style={{ fontSize: 17 }}>
+              {activeDay.label}, {activeDay.monthLabel}
+              {activeDay.dateStr === todayStr && (
+                <span className="tag prio-ok" style={{ marginLeft: 8 }}>
+                  Hoje
+                </span>
+              )}
+            </h2>
+          </div>
+          <span className="muted" style={{ fontSize: 12 }}>
+            {dayItems.length} {dayItems.length === 1 ? 'item' : 'itens'}
+          </span>
+        </div>
+
+        <div className="task-list">
+          {dayItems.length ? (
+            dayItems.map((item) => (
+              <div
+                key={item.id}
+                className={`task ${item.done ? 'done' : ''}`}
+                style={{ cursor: 'pointer' }}
+                onClick={() => {
+                  if (item.kind === 'task') onEditTask(item.task);
+                  else onEditEvent(item.event);
+                }}
+              >
+                {item.kind === 'task' ? (
+                  <input
+                    type="checkbox"
+                    className="check"
+                    checked={item.done}
+                    onClick={(e) => e.stopPropagation()}
+                    onChange={() => onToggleTask(item.task)}
+                  />
+                ) : (
+                  <span className="prio-kind-dot kind-event" aria-hidden="true">
+                    ◷
+                  </span>
+                )}
+                <div>
+                  <div className="task-title">{item.title}</div>
+                  <div className="task-meta">
+                    <span className="tag prio-ok">
+                      {item.time === '99:99' ? 'Sem hora' : item.time}
                     </span>
-                  )}
-                </h2>
-                <span className="muted" style={{ fontSize: 12 }}>
-                  {dayItems.length} {dayItems.length === 1 ? 'item' : 'itens'}
+                    <span className="tag prio-type">
+                      {item.kind === 'event' ? 'Agenda' : 'Tarefa'}
+                    </span>
+                  </div>
+                </div>
+                <span className="muted" style={{ fontSize: 13 }}>
+                  ›
                 </span>
               </div>
-
-              <div className="task-list">
-                {dayItems.length ? (
-                  dayItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className={`task ${item.done ? 'done' : ''}`}
-                      style={{ cursor: 'pointer' }}
-                      onClick={() => {
-                        if (item.kind === 'task') onEditTask(item.task);
-                        else onEditEvent(item.event);
-                      }}
-                    >
-                      {item.kind === 'task' ? (
-                        <input
-                          type="checkbox"
-                          className="check"
-                          checked={item.done}
-                          onClick={(e) => e.stopPropagation()}
-                          onChange={() => onToggleTask(item.task)}
-                        />
-                      ) : (
-                        <span className="prio-kind-dot kind-event" aria-hidden="true">
-                          ◷
-                        </span>
-                      )}
-                      <div>
-                        <div className="task-title">{item.title}</div>
-                        <div className="task-meta">
-                          <span className="tag prio-ok">
-                            {item.time === '99:99' ? 'Sem hora' : item.time}
-                          </span>
-                          <span className="tag prio-type">
-                            {item.kind === 'event' ? 'Agenda' : 'Tarefa'}
-                          </span>
-                          <span>{item.sub}</span>
-                        </div>
-                      </div>
-                      <span className="muted" style={{ fontSize: 13 }}>
-                        ›
-                      </span>
-                    </div>
-                  ))
-                ) : (
-                  <div className="empty">
-                    Dia livre. Use &ldquo;Lançar na semana&rdquo; acima para planejar.
-                  </div>
-                )}
-              </div>
+            ))
+          ) : (
+            <div className="empty">
+              Nada marcado para {activeDay.label}. Toque em &ldquo;＋ Adicionar&rdquo; para
+              planejar este dia.
             </div>
-          );
-        })}
+          )}
+        </div>
       </div>
+
+      {modalOpen && (
+        <div
+          className="modal-backdrop"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setModalOpen(false);
+          }}
+        >
+          <div className="modal">
+            <div className="modal-head">
+              <h2>Planejar na semana</h2>
+              <button
+                type="button"
+                className="close"
+                onClick={() => setModalOpen(false)}
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSave}>
+              <div className="field">
+                <label htmlFor="weekTitle">O que você vai fazer?</label>
+                <input
+                  id="weekTitle"
+                  required
+                  autoFocus
+                  placeholder="Ex: Treinar, Reunião, Estudar..."
+                  value={formTitle}
+                  onChange={(e) => setFormTitle(e.target.value)}
+                />
+              </div>
+
+              <div className="form-row">
+                <div className="field">
+                  <label htmlFor="weekDay">Dia</label>
+                  <select
+                    id="weekDay"
+                    value={formDate}
+                    onChange={(e) => setFormDate(e.target.value)}
+                  >
+                    {weekDays.map((d) => (
+                      <option key={d.dateStr} value={d.dateStr}>
+                        {d.label}, {d.monthLabel}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="field">
+                  <label htmlFor="weekTime">Horário</label>
+                  <input
+                    id="weekTime"
+                    type="time"
+                    value={formTime}
+                    onChange={(e) => setFormTime(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="field">
+                <label htmlFor="weekKind">Salvar em</label>
+                <select
+                  id="weekKind"
+                  value={formKind}
+                  onChange={(e) => setFormKind(e.target.value as 'task' | 'event')}
+                >
+                  <option value="task">Tarefa</option>
+                  <option value="event">Agenda (compromisso)</option>
+                </select>
+              </div>
+
+              <div className="modal-actions">
+                <button
+                  type="button"
+                  className="btn secondary"
+                  onClick={() => setModalOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button type="submit" className="btn" disabled={saving}>
+                  {saving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

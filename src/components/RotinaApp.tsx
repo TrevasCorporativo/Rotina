@@ -2048,11 +2048,11 @@ export function RotinaApp({
       {/* Mobile Bottom Navigation (5 items, Início highlighted in green center) */}
       <nav className="mobile-bottom-nav" aria-label="Navegação mobile">
         <button
-          className={view === 'goals' ? 'active' : ''}
-          onClick={() => setView('goals')}
+          className={view === 'devotional' ? 'active' : ''}
+          onClick={() => setView('devotional')}
         >
-          <span>◎</span>
-          <small>Metas</small>
+          <span>◇</span>
+          <small>Devocional</small>
         </button>
         <button
           className={view === 'finance' ? 'active' : ''}
@@ -2078,11 +2078,11 @@ export function RotinaApp({
           <small>Agenda</small>
         </button>
         <button
-          className={view === 'tips' ? 'active' : ''}
-          onClick={() => setView('tips')}
+          className={view === 'week' ? 'active' : ''}
+          onClick={() => setView('week')}
         >
-          <span className="severino-nav-ico">✦</span>
-          <small>Severino</small>
+          <span>▥</span>
+          <small>Semana</small>
         </button>
       </nav>
 
