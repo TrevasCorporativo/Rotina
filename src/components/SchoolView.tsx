@@ -11,7 +11,7 @@ import {
   Timer,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
-import { COURSES, GENERATED_ACTIVITIES } from '@/lib/courses-data';
+import { COURSES, GENERATED_ACTIVITIES, type CourseCategory } from '@/lib/courses-data';
 import type { CourseProgress } from '@/lib/types';
 
 interface SchoolViewProps {
@@ -21,6 +21,12 @@ interface SchoolViewProps {
   onToast: (msg: string) => void;
 }
 
+const COURSE_CATEGORIES: CourseCategory[] = [
+  'Comunicação & Oratória',
+  'Teologia',
+  'Pregação',
+];
+
 export function SchoolView({
   userId,
   progress,
@@ -28,10 +34,20 @@ export function SchoolView({
   onToast,
 }: SchoolViewProps) {
   const supabase = createClient();
+  const [categoryFilter, setCategoryFilter] = useState<CourseCategory>(
+    'Comunicação & Oratória'
+  );
+  const visibleCourses = useMemo(
+    () => COURSES.filter((c) => c.category === categoryFilter),
+    [categoryFilter]
+  );
   const [courseId, setCourseId] = useState(COURSES[0].id);
   const course = useMemo(
-    () => COURSES.find((c) => c.id === courseId) ?? COURSES[0],
-    [courseId]
+    () =>
+      visibleCourses.find((c) => c.id === courseId) ??
+      visibleCourses[0] ??
+      COURSES[0],
+    [visibleCourses, courseId]
   );
 
   const [tab, setTab] = useState<'lessons' | 'tips' | 'practice' | 'vocab'>(
@@ -223,9 +239,27 @@ export function SchoolView({
         </div>
       </div>
 
+      {/* Category Filter */}
+      <div className="filter-row" style={{ marginBottom: 10 }}>
+        {COURSE_CATEGORIES.map((cat) => (
+          <button
+            key={cat}
+            type="button"
+            className={`chip ${categoryFilter === cat ? 'active' : ''}`}
+            onClick={() => {
+              setCategoryFilter(cat);
+              const firstInCat = COURSES.find((c) => c.category === cat);
+              if (firstInCat) selectCourse(firstInCat.id);
+            }}
+          >
+            {cat}
+          </button>
+        ))}
+      </div>
+
       {/* Course Selector Cards */}
       <div className="school-courses-bar">
-        {COURSES.map((c) => {
+        {visibleCourses.map((c) => {
           const done = c.lessons.filter((l) =>
             progress.some(
               (p) => p.course_id === c.id && p.lesson_id === l.id && p.completed

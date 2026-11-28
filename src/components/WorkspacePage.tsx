@@ -24,6 +24,9 @@ async function WorkspaceLoader({ initialView }: { initialView: ViewId }) {
       initialRecoveryTracks={data.recoveryTracks}
       initialRecoveryLogs={data.recoveryLogs}
       initialCourseProgress={data.courseProgress}
+      initialDevotionalCheckins={data.devotionalCheckins}
+      initialBibleHighlights={data.bibleHighlights}
+      initialBibleNotes={data.bibleNotes}
     />
   );
 }

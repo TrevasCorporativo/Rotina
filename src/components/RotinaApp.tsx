@@ -15,8 +15,11 @@ import {
 } from '@/lib/push';
 import { useTheme } from '@/lib/theme';
 import type {
+  BibleHighlight,
+  BibleNote,
   CalendarEvent,
   CourseProgress,
+  DevotionalCheckin,
   FinanceExpense,
   FinanceIncome,
   FinanceMonth,
@@ -34,6 +37,7 @@ import {
   type NewEventPayload,
   type NewTaskPayload,
 } from './EntryModal';
+import { DevocionalView } from './DevocionalView';
 import { FinanceView } from './FinanceView';
 import { GoalsView } from './GoalsView';
 import { LabView } from './LabView';
@@ -50,6 +54,7 @@ export type ViewId =
   | 'notes'
   | 'lab'
   | 'school'
+  | 'devotional'
   | 'finance'
   | 'tips'
   | 'profile';
@@ -62,6 +67,7 @@ const VIEW_PATHS: Record<ViewId, string> = {
   notes: '/anotacoes',
   lab: '/laboratorio',
   school: '/escola',
+  devotional: '/devocional',
   finance: '/financeiro',
   tips: '/severino',
   profile: '/perfil',
@@ -80,6 +86,9 @@ interface RotinaAppProps {
   initialRecoveryTracks: RecoveryTrack[];
   initialRecoveryLogs: RecoveryLog[];
   initialCourseProgress: CourseProgress[];
+  initialDevotionalCheckins: DevotionalCheckin[];
+  initialBibleHighlights: BibleHighlight[];
+  initialBibleNotes: BibleNote[];
 }
 
 function localDate(d: Date): string {
@@ -124,6 +133,9 @@ export function RotinaApp({
   initialRecoveryTracks,
   initialRecoveryLogs,
   initialCourseProgress,
+  initialDevotionalCheckins,
+  initialBibleHighlights,
+  initialBibleNotes,
 }: RotinaAppProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -138,6 +150,14 @@ export function RotinaApp({
     useState<RecoveryLog[]>(initialRecoveryLogs);
   const [courseProgress, setCourseProgress] =
     useState<CourseProgress[]>(initialCourseProgress);
+  const [devotionalCheckins, setDevotionalCheckins] = useState<DevotionalCheckin[]>(
+    initialDevotionalCheckins
+  );
+  const [bibleHighlights, setBibleHighlights] = useState<BibleHighlight[]>(
+    initialBibleHighlights
+  );
+  const [bibleNotes, setBibleNotes] = useState<BibleNote[]>(initialBibleNotes);
+  const [devotionalAlertOpen, setDevotionalAlertOpen] = useState(false);
   const [financeExpenses, setFinanceExpenses] = useState<FinanceExpense[]>(
     initialFinanceExpenses
   );
@@ -197,6 +217,18 @@ export function RotinaApp({
     const timer = setInterval(() => setNowClock(new Date()), 1000);
     return () => clearInterval(timer);
   }, []);
+
+  useEffect(() => {
+    const h = nowClock.getHours();
+    const m = nowClock.getMinutes();
+    if ((h === 22 && m >= 30) || h === 23) {
+      const doneToday = devotionalCheckins.some((c) => c.completed_date === todayStr);
+      const dismissedKey = `rotina_dev_alert_dismissed_${todayStr}`;
+      if (!doneToday && localStorage.getItem(dismissedKey) !== '1') {
+        queueMicrotask(() => setDevotionalAlertOpen(true));
+      }
+    }
+  }, [nowClock, devotionalCheckins, todayStr]);
   const [selectedDate, setSelectedDate] = useState<string>(todayStr);
   const [currentMonth, setCurrentMonth] = useState<Date>(() => new Date());
 
@@ -248,11 +280,18 @@ export function RotinaApp({
       v === 'notes' ||
       v === 'lab' ||
       v === 'school' ||
+      v === 'devotional' ||
       v === 'finance' ||
       v === 'tips' ||
       v === 'profile'
     ) {
       queueMicrotask(() => setViewState(v));
+    }
+
+    const alerta = params.get('alerta');
+    if (alerta === '1') {
+      queueMicrotask(() => setDevotionalAlertOpen(true));
+      window.history.replaceState({}, '', window.location.pathname);
     }
 
     const rt = params.get('rt');
@@ -820,6 +859,7 @@ export function RotinaApp({
     notes: 'Anotações',
     lab: 'Laboratório',
     school: 'Escola',
+    devotional: 'Devocional',
     finance: 'Financeiro',
     tips: 'Severino',
     profile: 'Meu perfil',
@@ -1107,6 +1147,14 @@ export function RotinaApp({
             >
               <span className="ico">▤</span>
               <span className="nav-text">Escola</span>
+            </button>
+            <button
+              className={view === 'devotional' ? 'active' : ''}
+              onClick={() => setView('devotional')}
+              title="Devocional"
+            >
+              <span className="ico">✝</span>
+              <span className="nav-text">Devocional</span>
             </button>
             <button
               className={view === 'finance' ? 'active' : ''}
@@ -1898,6 +1946,20 @@ export function RotinaApp({
           />
         )}
 
+        {view === 'devotional' && (
+          <DevocionalView
+            userId={profile.id}
+            todayStr={todayStr}
+            checkins={devotionalCheckins}
+            highlights={bibleHighlights}
+            bibleNotes={bibleNotes}
+            onCheckinsChange={setDevotionalCheckins}
+            onHighlightsChange={setBibleHighlights}
+            onBibleNotesChange={setBibleNotes}
+            onToast={showToast}
+          />
+        )}
+
         {view === 'finance' && (
           <FinanceView
             userId={profile.id}
@@ -2066,6 +2128,13 @@ export function RotinaApp({
                 <span>Escola</span>
               </button>
               <button
+                className={view === 'devotional' ? 'active' : ''}
+                onClick={() => setView('devotional')}
+              >
+                <span className="ico">✝</span>
+                <span>Devocional</span>
+              </button>
+              <button
                 className={view === 'finance' ? 'active' : ''}
                 onClick={() => setView('finance')}
               >
@@ -2155,6 +2224,44 @@ export function RotinaApp({
               <Mic size={18} strokeWidth={2.2} />
             </button>
           )}
+        </div>
+      )}
+
+      {devotionalAlertOpen && (
+        <div className="devotional-fullscreen-alert" role="alertdialog" aria-modal="true">
+          <div className="devotional-alert-card">
+            <span className="tag prio-ok" style={{ marginBottom: 12, display: 'inline-block' }}>
+              22H30 · MOMENTO COM DEUS
+            </span>
+            <h1>Hora do Devocional</h1>
+            <p>
+              Pare tudo por alguns minutos. Desligue as distrações, abra a Palavra e
+              fortaleça o seu espírito antes de encerrar o dia.
+            </p>
+            <div className="devotional-alert-actions">
+              <button
+                type="button"
+                className="btn"
+                onClick={() => {
+                  localStorage.setItem(`rotina_dev_alert_dismissed_${todayStr}`, '1');
+                  setDevotionalAlertOpen(false);
+                  setView('devotional');
+                }}
+              >
+                Abrir meu Devocional agora
+              </button>
+              <button
+                type="button"
+                className="btn secondary"
+                onClick={() => {
+                  localStorage.setItem(`rotina_dev_alert_dismissed_${todayStr}`, '1');
+                  setDevotionalAlertOpen(false);
+                }}
+              >
+                Lembrar depois
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

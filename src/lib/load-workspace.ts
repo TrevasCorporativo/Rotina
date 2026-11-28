@@ -1,7 +1,10 @@
 import { createClient } from '@/lib/supabase/server';
 import type {
+  BibleHighlight,
+  BibleNote,
   CalendarEvent,
   CourseProgress,
+  DevotionalCheckin,
   FinanceExpense,
   FinanceIncome,
   FinanceMonth,
@@ -25,6 +28,9 @@ export interface WorkspaceData {
   recoveryTracks: RecoveryTrack[];
   recoveryLogs: RecoveryLog[];
   courseProgress: CourseProgress[];
+  devotionalCheckins: DevotionalCheckin[];
+  bibleHighlights: BibleHighlight[];
+  bibleNotes: BibleNote[];
 }
 
 export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
@@ -47,6 +53,9 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     { data: recoveryTracks },
     { data: recoveryLogs },
     { data: courseProgress },
+    { data: devotionalCheckins },
+    { data: bibleHighlights },
+    { data: bibleNotes },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     supabase
@@ -86,6 +95,15 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
       .order('created_at', { ascending: false })
       .limit(80),
     supabase.from('course_progress').select('*'),
+    supabase
+      .from('devotional_checkins')
+      .select('*')
+      .order('day_number', { ascending: true }),
+    supabase.from('bible_highlights').select('*'),
+    supabase
+      .from('bible_notes')
+      .select('*')
+      .order('created_at', { ascending: false }),
   ]);
 
   if (!profile || (profile as Profile).login_key?.toLowerCase() !== 'leonardo') {
@@ -104,6 +122,9 @@ export async function loadWorkspaceData(): Promise<WorkspaceData | null> {
     recoveryTracks: (recoveryTracks ?? []) as RecoveryTrack[],
     recoveryLogs: (recoveryLogs ?? []) as RecoveryLog[],
     courseProgress: (courseProgress ?? []) as CourseProgress[],
+    devotionalCheckins: (devotionalCheckins ?? []) as DevotionalCheckin[],
+    bibleHighlights: (bibleHighlights ?? []) as BibleHighlight[],
+    bibleNotes: (bibleNotes ?? []) as BibleNote[],
   };
 }
 

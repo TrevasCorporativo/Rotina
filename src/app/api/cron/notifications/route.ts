@@ -32,6 +32,7 @@ function getLocalClock(timeZone: string) {
   return {
     dateStr,
     hour: Number(map.hour),
+    minute: Number(map.minute),
     nowMs: new Date(`${isoLocal}Z`).getTime(),
   };
 }
@@ -116,7 +117,7 @@ async function handleDispatch(request: Request) {
   const { data: profiles } = await admin
     .from('profiles')
     .select(
-      'id, login_key, display_name, timezone, notify_tasks, notify_events, last_daily_summary_date, last_daily_inspiration_date'
+      'id, login_key, display_name, timezone, notify_tasks, notify_events, last_daily_summary_date, last_daily_inspiration_date, last_devotional_alert_date'
     )
     .eq('login_key', 'leonardo');
 
@@ -289,7 +290,7 @@ async function handleDispatch(request: Request) {
     if (!subs || subs.length === 0) continue;
 
     const tz = prof.timezone || 'America/Sao_Paulo';
-    const { dateStr, hour } = getLocalClock(tz);
+    const { dateStr, hour, minute } = getLocalClock(tz);
     const firstName = (prof.display_name || 'Você').split(' ')[0];
 
     const shouldSendSummary =
@@ -401,6 +402,27 @@ async function handleDispatch(request: Request) {
           .update({ last_daily_inspiration_date: dateStr })
           .eq('id', prof.id);
         sentDailyInspirations++;
+      }
+    }
+
+    // 22:30 Devocional Alert (even when app is closed)
+    const isDevotionalTime =
+      (hour === 22 && minute >= 30) || hour === 23;
+    if (
+      (forceDaily || isDevotionalTime) &&
+      prof.last_devotional_alert_date !== dateStr
+    ) {
+      const deliveredDev = await sendToUserDevices(admin, subs, {
+        title: '📖 Hora do Devocional',
+        body: '22h30 · Separe alguns minutos com Deus na sua leitura bíblica de hoje.',
+        url: '/devocional?alerta=1',
+        tag: `devotional-alert-${dateStr}`,
+      });
+      if (deliveredDev > 0) {
+        await admin
+          .from('profiles')
+          .update({ last_devotional_alert_date: dateStr })
+          .eq('id', prof.id);
       }
     }
   }

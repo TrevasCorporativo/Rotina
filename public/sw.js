@@ -6,6 +6,21 @@ self.addEventListener('activate', (event) => {
   event.waitUntil(self.clients.claim());
 });
 
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (url.pathname === '/biblia/nvi.json') {
+    event.respondWith(
+      caches.open('rotina-bible-v1').then(async (cache) => {
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+        const fresh = await fetch(event.request);
+        if (fresh.ok) cache.put(event.request, fresh.clone());
+        return fresh;
+      })
+    );
+  }
+});
+
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
@@ -28,6 +43,7 @@ self.addEventListener('push', (event) => {
     badge: '/icons/icon-192.png',
     tag: payload.tag,
     renotify: true,
+    requireInteraction: String(payload.tag || '').startsWith('devotional-alert'),
     vibrate: [200, 100, 200],
     data: {
       url: payload.url || '/',

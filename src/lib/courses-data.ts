@@ -23,8 +23,11 @@ export interface VocabularyWord {
   example: string;
 }
 
+export type CourseCategory = 'Comunicação & Oratória' | 'Teologia' | 'Pregação';
+
 export interface CourseDefinition {
   id: string;
+  category: CourseCategory;
   title: string;
   shortTitle: string;
   subtitle: string;
@@ -102,6 +105,7 @@ export const GENERATED_ACTIVITIES: GeneratedActivity[] = [
 export const COURSES: CourseDefinition[] = [
   {
     id: 'oratoria-comunicacao',
+    category: 'Comunicação & Oratória',
     title: 'Oratória & Falar em Público',
     shortTitle: 'Oratória',
     subtitle: 'Domine a voz, elimine vícios de linguagem, vença o nervosismo e fale com autoridade.',
@@ -228,6 +232,7 @@ export const COURSES: CourseDefinition[] = [
   },
   {
     id: 'comunicacao-assertiva',
+    category: 'Comunicação & Oratória',
     title: 'Comunicação Assertiva & Clareza',
     shortTitle: 'Comunicação',
     subtitle: 'Expresse ideias, imponha limites e conduza conversas difíceis sem ser passivo nem agressivo.',
@@ -290,6 +295,7 @@ export const COURSES: CourseDefinition[] = [
   },
   {
     id: 'gestos-presenca',
+    category: 'Comunicação & Oratória',
     title: 'Linguagem Corporal & Gestos',
     shortTitle: 'Gesticular',
     subtitle: 'Aprenda o que fazer com as mãos, postura, olhar e presença para transmitir confiança.',
@@ -352,6 +358,7 @@ export const COURSES: CourseDefinition[] = [
   },
   {
     id: 'vocabulario-palavras',
+    category: 'Comunicação & Oratória',
     title: 'Vocabulário & Palavras Novas',
     shortTitle: 'Palavras Novas',
     subtitle: 'Enriqueça seu repertório, pare de repetir "coisa/tipo/muito" e fale com precisão e elegância.',
@@ -471,6 +478,170 @@ export const COURSES: CourseDefinition[] = [
         replaces: 'muito importante',
         meaning: 'Decisivo, fundamental para o resultado.',
         example: 'Esse detalhe é crucial para o projeto funcionar.',
+      },
+    ],
+  },
+  {
+    id: 'teologia-sistematica',
+    category: 'Teologia',
+    title: 'Teologia · Básico ao Avançado',
+    shortTitle: 'Teologia',
+    subtitle: 'O que estudar na Bíblia, Doutrina de Deus, Cristo, Salvação, Espírito Santo e Escatologia.',
+    lessons: [
+      {
+        id: 'teo-1-bibliologia',
+        module: 'Nível Básico · Bibliologia',
+        title: '1. Como estudar a Bíblia e panorama das Escrituras',
+        duration: 'Vídeo + estudo',
+        youtubeId: '4q_yhkfp6MA',
+        summary: [
+          'A Bíblia é uma biblioteca de 66 livros (39 no AT, 27 no NT) com um único centro: Jesus Cristo.',
+          'Nunca leia um versículo isolado: observe sempre o contexto histórico, literário e a quem foi escrito.',
+          'Ordem recomendada para dominar a Bíblia: Evangelhos → Atos e Cartas → Pentateuco → Livros Históricos → Salmos/Provérbios → Profetas.',
+        ],
+        exercise:
+          'Escolha 1 capítulo de João hoje e anote: 1) Quem fala? 2) Para quem? 3) O que ensina sobre Jesus?',
+        checklist: [
+          'Assistir à aula introdutória de teologia',
+          'Entender a divisão dos 66 livros',
+          'Aplicar a regra do contexto em 1 capítulo hoje',
+        ],
+      },
+      {
+        id: 'teo-2-soteriologia',
+        module: 'Nível Intermediário · Deus, Cristo & Salvação',
+        title: '2. Trindade, Pessoa de Cristo e Doutrina da Graça',
+        duration: 'Vídeo + estudo',
+        youtubeId: '3j0Q7WJ9M4U',
+        summary: [
+          'Teologia Própria: Deus é Santo, Soberano, Justo e Amor — um só Deus em três Pessoas (Pai, Filho e Espírito Santo).',
+          'Cristologia: Jesus é 100% Deus e 100% homem; Sua cruz pagou nossa dívida e Sua ressurreição garantiu nossa nova vida.',
+          'Soteriologia: somos salvos pela graça mediante a fé (Ef 2:8-9), para boas obras e santificação diária.',
+        ],
+        exercise:
+          'Leia Romanos 5 e 8 anotando 3 benefícios reais da justificação pela fé.',
+        checklist: [
+          'Assistir à aula doutrinária',
+          'Ler Romanos 5 e 8 com atenção',
+          'Escrever um resumo com suas próprias palavras',
+        ],
+      },
+      {
+        id: 'teo-3-escatologia',
+        module: 'Nível Avançado · Igreja & Escatologia',
+        title: '3. Pneumatologia, Eclesiologia e Últimos Dias',
+        duration: 'Vídeo + estudo',
+        youtubeId: '4q_yhkfp6MA',
+        summary: [
+          'Espírito Santo: habita no crente, convence do pecado, produz o fruto do Espírito (Gl 5:22) e capacita para o serviço.',
+          'Igreja: não é prédio, é o Corpo de Cristo chamado à comunhão, discipulado e missão.',
+          'Escatologia: vigilância, fidelidade e esperança na volta visível de Cristo e nos novos céus e nova terra.',
+        ],
+        exercise:
+          'Compare Gálatas 5:16-25 com a sua rotina atual e ore pedindo direção do Espírito.',
+        checklist: [
+          'Estudar o fruto do Espírito em Gálatas 5',
+          'Anotar 1 área prática para alinhar com a Palavra',
+          'Revisar os 3 níveis do curso',
+        ],
+      },
+    ],
+    quickTips: [
+      {
+        id: 'teo-tip-1',
+        category: 'Hermenêutica',
+        title: 'Texto sem contexto vira pretexto',
+        description:
+          'Sempre leia pelo menos 5 versículos antes e 5 depois do texto que você quer entender ou ensinar.',
+      },
+      {
+        id: 'teo-tip-2',
+        category: 'O que estudar',
+        title: 'Comece pelos pilares antes das polêmicas',
+        description:
+          'Domine primeiro os Evangelhos, Romanos, Efésios e Salmos antes de gastar energia em debates secundários.',
+      },
+    ],
+  },
+  {
+    id: 'pregacao-homiletica',
+    category: 'Pregação',
+    title: 'Formação de Pregadores · Homilética',
+    shortTitle: 'Pregação',
+    subtitle: 'Do básico ao avançado: exegese, estrutura de sermão, aplicação e entrega no púlpito.',
+    lessons: [
+      {
+        id: 'preg-1-base',
+        module: 'Nível Básico · Preparo & Exegese',
+        title: '1. O chamado, vida no altar e escolha do texto bíblico',
+        duration: 'Vídeo + prática',
+        youtubeId: 'eHoXVfVaJgs',
+        summary: [
+          'O sermão começa no joelho: nunca pregue algo que ainda não confrontou o seu próprio coração.',
+          'Exegese simples: pergunte ao texto "O que isso significou lá atrás?" antes de perguntar "O que significa hoje?".',
+          'Defina a Ideia Central do Sermão em uma única frase clara e memorável.',
+        ],
+        exercise:
+          'Escolha um texto curto (ex: Salmo 23 ou Marcos 4:35-41) e resuma a mensagem central em 1 frase.',
+        checklist: [
+          'Assistir à aula de preparo e homilética',
+          'Escolher 1 texto bíblico curto',
+          'Escrever a Ideia Central em 1 frase',
+        ],
+      },
+      {
+        id: 'preg-2-estrutura',
+        module: 'Nível Intermediário · Construção do Sermão',
+        title: '2. Introdução, tópicos lógicos, ilustrações e conclusão',
+        duration: 'Vídeo + prática',
+        youtubeId: '45gD-gb4cRs',
+        summary: [
+          'Introdução (10%): prenda a atenção com uma pergunta ou situação real e leia o texto com clareza.',
+          'Desenvolvimento (80%): divida em 2 ou 3 tópicos claros extraídos diretamente do texto (Sermão Expositivo).',
+          'Conclusão (10%): recapitule em 30 segundos, traga aplicação prática e faça um apelo claro ao arrependimento e fé.',
+        ],
+        exercise:
+          'Monte um esboço completo em 3 tópicos usando o texto escolhido na Aula 1.',
+        checklist: [
+          'Assistir à aula de estruturação',
+          'Escrever Introdução + 3 tópicos + Conclusão',
+          'Adicionar 1 ilustração real do cotidiano',
+        ],
+      },
+      {
+        id: 'preg-3-pulpito',
+        module: 'Nível Avançado · Púlpito & Aplicação',
+        title: '3. Sermão expositivo, postura no púlpito e dependência do Espírito',
+        duration: 'Vídeo + prática',
+        youtubeId: 'eHoXVfVaJgs',
+        summary: [
+          'Pregador não é ator nem palestrante motivacional: fale a Palavra com autoridade, simplicidade e compaixão.',
+          'Use pausas após ler o texto e antes da aplicação final — o silêncio deixa o Espírito trabalhar na consciência.',
+          'Evite jargões vazios; explique verdades profundas em linguagem que qualquer pessoa entenda.',
+        ],
+        exercise:
+          'Pregue o seu esboço de 3 minutos em voz alta no quarto ou gravando no celular para revisar sua clareza.',
+        checklist: [
+          'Revisar seu esboço com foco em Cristo',
+          'Treinar a entrega em voz alta por 3 minutos',
+          'Orar antes de falar em público',
+        ],
+      },
+    ],
+    quickTips: [
+      {
+        id: 'preg-tip-1',
+        category: 'Sermão Expositivo',
+        title: 'Deixe o texto ditar os tópicos',
+        description:
+          'Em vez de inventar um tema e forçar versículos, siga a ordem natural do próprio parágrafo bíblico.',
+      },
+      {
+        id: 'preg-tip-2',
+        category: 'Púlpito',
+        title: 'Clareza acima de eloquência',
+        description:
+          'O melhor pregador não é o que fala palavras difíceis, mas o que faz o povo sair entendendo a Bíblia e querendo obedecer a Deus.',
       },
     ],
   },

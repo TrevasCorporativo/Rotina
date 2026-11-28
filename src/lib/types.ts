@@ -231,3 +231,33 @@ export interface CourseProgress {
   checklist_done?: string[];
   updated_at: string;
 }
+
+export interface DevotionalCheckin {
+  id: string;
+  user_id: string;
+  day_number: number;
+  completed_date: string;
+  reflection: string;
+  created_at: string;
+}
+
+export interface BibleHighlight {
+  id: string;
+  user_id: string;
+  book_abbrev: string;
+  chapter: number;
+  verse: number;
+  color: 'yellow' | 'green' | 'blue' | 'pink';
+  created_at: string;
+}
+
+export interface BibleNote {
+  id: string;
+  user_id: string;
+  book_abbrev: string;
+  chapter: number;
+  verse: number;
+  verse_text: string;
+  comment: string;
+  created_at: string;
+}
